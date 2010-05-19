@@ -1,0 +1,69 @@
+<module>
+    <manifestVersion>1.0.0</manifestVersion>
+    <symbolicName>gpftestop1</symbolicName>
+    <name>gpftestop1</name>
+    <version>1.0-SNAPSHOT</version>
+
+    <!-- TODO - As needed, adapt metadata elements here -->
+    <description>BEAM gpftestop1</description>
+    <vendor>Brockmann Consult GmbH</vendor>
+    <contactAddress>Max Planck Str.2, 21502 Geesthacht (Germany)</contactAddress>
+    <copyright>(C) 2010 by Brockmann Consult GmbH</copyright>
+    <url>http://envisat.esa.int/beam</url>
+    <licenseUrl>http://www.gnu.org/licenses/gpl.html</licenseUrl>
+    <changelog>
+        <![CDATA[ ]]>
+    </changelog>
+
+    <categories>Processor,VISAT</categories>
+
+    <dependency>
+        <module>beam-core</module>
+    </dependency>
+    <dependency>
+        <module>beam-gpf</module>
+    </dependency>
+    <dependency>
+        <module>beam-visat</module>
+        <optional>true</optional>
+    </dependency>
+
+    <extension point="beam-ui:actions">
+
+        <action>
+            <class>org.esa.beam.visat.actions.DefaultOperatorAction</class>
+
+            <!-- TODO - Adapt the following action elements -->
+            <parent>tools</parent>
+            <id>globalb-SingleTileOp</id>
+            <helpId>globalb-aerosol</helpId>
+            <operatorName>SingleTileOp</operatorName>
+            <text>SingleTileOp...</text>
+            <dialogTitle>SingleTileOp</dialogTitle>
+            <targetProductNameSuffix>_SingleTileOp</targetProductNameSuffix>
+        </action>
+
+        <action>
+            <class>org.esa.beam.visat.actions.DefaultOperatorAction</class>
+
+            <!-- TODO - Adapt the following action elements -->
+            <parent>tools</parent>
+            <id>globalb-AerosolOp</id>
+            <helpId>globalb-aerosol</helpId>
+            <operatorName>AerosolOp</operatorName>
+            <text>AerosolOp...</text>
+            <dialogTitle>AerosolOp</dialogTitle>
+            <targetProductNameSuffix>_AerosolOp</targetProductNameSuffix>
+        </action>
+
+    </extension>
+
+
+    <extension point="beam-ui:helpSets">
+        <helpSet>
+            <parent>beam-help</parent>
+            <path>doc/help/__artifactId__.hs</path>
+        </helpSet>
+    </extension>
+
+</module>
