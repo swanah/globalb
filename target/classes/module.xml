@@ -24,32 +24,27 @@
         <module>beam-gpf</module>
     </dependency>
     <dependency>
+        <module>beam-spot-vgt-reader</module>
+    </dependency>
+    <dependency>
         <module>beam-visat</module>
         <optional>true</optional>
     </dependency>
 
     <extension point="beam-ui:actions">
-
         <action>
-            <class>org.esa.beam.visat.actions.DefaultOperatorAction</class>
-
-            <!-- TODO - Adapt the following action elements -->
+            <class>org.esa.beam.visat.actions.ActionGroup</class>
             <parent>tools</parent>
-            <id>globalb-SingleTileOp</id>
-            <helpId>globalb-aerosol</helpId>
-            <operatorName>SingleTileOp</operatorName>
-            <text>SingleTileOp...</text>
-            <dialogTitle>SingleTileOp</dialogTitle>
-            <targetProductNameSuffix>_SingleTileOp</targetProductNameSuffix>
+            <id>globalb</id>
+            <text>GlobAlbedo</text>
         </action>
-
         <action>
             <class>org.esa.beam.visat.actions.DefaultOperatorAction</class>
 
             <!-- TODO - Adapt the following action elements -->
-            <parent>tools</parent>
-            <id>globalb-AerosolOp</id>
-            <helpId>globalb-aerosol</helpId>
+            <parent>globalb</parent>
+            <id>VGT AerosolOp</id>
+            <helpId>aerosol</helpId>
             <operatorName>AerosolOp</operatorName>
             <text>AerosolOp...</text>
             <dialogTitle>AerosolOp</dialogTitle>

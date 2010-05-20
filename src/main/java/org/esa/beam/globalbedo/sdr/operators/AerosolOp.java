@@ -82,7 +82,7 @@ public class AerosolOp extends Operator {
     private float[] soilSurfSpec;
     private float[] vegSurfSpec;
     private LookupTable lut;
-    private PointRetrieval retrieval;
+    //private PointRetrieval retrieval;
     private Band validBand;
 
     /**
@@ -121,7 +121,7 @@ public class AerosolOp extends Operator {
 
         String lutName = "e:/model_data/momo/LUTs_Swansea/MERIS/MERIS_LUT_MOMO_ContinentalI_80_SU.bin";
         lut = new MomoLut(lutName).getLookupTable();
-        retrieval = new PointRetrieval(lut, soilSurfSpec, vegSurfSpec, specWvl);
+        
 
         final BandMathsOp validBandOp = BandMathsOp.createBooleanExpressionBand("(SM.B0_OK && SM.B2_OK && SM.B3_OK && SM.MIR_OK && SM.LAND && (MIR > 0.045))", sourceProduct);
         validBand = validBandOp.getTargetProduct().getBandAt(0);
@@ -161,6 +161,7 @@ public class AerosolOp extends Operator {
         }
         sourceProduct.getBandAt(0).getValidMaskImage();
 
+        PointRetrieval retrieval = new PointRetrieval(lut, soilSurfSpec, vegSurfSpec, specWvl);
 
         int x0 = (int) targetRectangle.getX();
         int y0 = (int) targetRectangle.getY();

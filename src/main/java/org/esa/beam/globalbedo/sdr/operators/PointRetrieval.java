@@ -55,7 +55,7 @@ public class PointRetrieval {
 
 // public methods
 
-    public synchronized RetrievalResults runRetrieval(float surfPres, float[] geometry, float[] toaReflec) {
+    public RetrievalResults runRetrieval(float surfPres, float[] geometry, float[] toaReflec) {
         this.sza = geometry[0];
         this.razi = geometry[1];
         this.vza = geometry[2];
@@ -67,7 +67,7 @@ public class PointRetrieval {
         return runRetrieval();
     }
 
-    public synchronized RetrievalResults runRetrieval() {
+    public RetrievalResults runRetrieval() {
         boolean failed = false;
 
         final Brent b = new Brent(0.0, aotStart, 2.0, new emodSpecTau(), 5e-4);
