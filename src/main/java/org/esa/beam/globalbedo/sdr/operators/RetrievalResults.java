@@ -10,13 +10,13 @@ package org.esa.beam.globalbedo.sdr.operators;
  * @author akheckel
  */
 public class RetrievalResults {
-    public final boolean retrievalFailed;
-    public final float optAOT;
-    public final float optErr;
-    public final float retrievalErr;
-    public float scaleVeg;
-    public float scaleSoil;
-    public float[] sdr;
+    final boolean retrievalFailed;
+    final float optAOT;
+    final float optErr;
+    final float retrievalErr;
+    double[] pAtMin;
+    float[] modelSpec;
+    float[] sdr;
 
     public RetrievalResults() {
         this(false, -1.0f, -1.0f, -1.0f);

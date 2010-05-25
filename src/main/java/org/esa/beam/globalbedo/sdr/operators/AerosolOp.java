@@ -20,6 +20,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.esa.beam.framework.datamodel.Band;
 import org.esa.beam.framework.datamodel.Product;
+import org.esa.beam.framework.datamodel.TiePointGrid;
 import org.esa.beam.framework.gpf.Operator;
 import org.esa.beam.framework.gpf.OperatorException;
 import org.esa.beam.framework.gpf.OperatorSpi;
@@ -37,25 +38,27 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import org.esa.beam.dataio.envisat.EnvisatConstants;
 import org.esa.beam.globalbedo.sdr.lutUtils.MomoLut;
 import org.esa.beam.framework.datamodel.ProductData;
+import org.esa.beam.framework.datamodel.RasterDataNode;
+import org.esa.beam.framework.gpf.GPF;
 import org.esa.beam.gpf.operators.standard.BandMathsOp;
+import org.esa.beam.meris.brr.Rad2ReflOp;
 import org.esa.beam.util.math.LookupTable;
 
-// TODO - Rename this operator
-// TODO - Adapt OperatorMetadata
 // TODO - Adapt javadoc
 
 /**
- * The sample operator implementation for an algorithm that outputs
- * all bands of the target product at once.
+ * Operator producing AOT for GlobAlbedo
  */
 @OperatorMetadata(alias = "AerosolOp",
-                  description = "Computes <X> and <Y> from <Z>",
-                  authors = "Me, myself and I",
+                  description = "Computes aerosol optical thickness",
+                  authors = "Andreas Heckel",
                   version = "1.0",
-                  copyright = "(C) 2010 by Brockmann Consult GmbH (beam@brockmann-consult.de)")
+                  copyright = "(C) 2010 by University Swansea (a.heckel@swansea.ac.uk)")
 public class AerosolOp extends Operator {
 
     @SourceProduct
@@ -69,18 +72,21 @@ public class AerosolOp extends Operator {
     private String productName = "pname";
     private String productType = "ptype";
 
-    private final String[] specBandNames = {"B0", "B2", "B3", "MIR"};
-    private final String[] geomBandNames = {"SZA", "SAA", "VZA", "VAA"};
+    private String instrument;
+
+    private String[] specBandNames;
+    private String[] geomBandNames;
     private final String   surfPresName = "";
 
     private int rasterWidth;
     private int rasterHeight;
     private ArrayList<Band> specBandList;
-    private ArrayList<Band> geometryBandList;
+    private ArrayList<RasterDataNode> geometryBandList;
     private float[] specWvl;
     private int nSpecBands;
     private float[] soilSurfSpec;
     private float[] vegSurfSpec;
+    private float[] specWeights;
     private LookupTable lut;
     //private PointRetrieval retrieval;
     private Band validBand;
@@ -108,22 +114,27 @@ public class AerosolOp extends Operator {
     @Override
     public void initialize() throws OperatorException {
 
-        specBandList = getBandList(specBandNames);
+        instrument = getInstrument();
+
+        specBandList = getSpecBandList(instrument);
         nSpecBands = specBandList.size();
         specWvl = getSpectralWvl(specBandList);
+        specBandNames = InstrumentConsts.getInstance().getSpecBandNames(instrument);
 
-        geometryBandList = getBandList(geomBandNames);
+        geometryBandList = getGeomBandList(instrument);
+        geomBandNames = InstrumentConsts.getInstance().getGeomBandNames(instrument);
 
         rasterHeight = sourceProduct.getSceneRasterHeight();
         rasterWidth  = sourceProduct.getSceneRasterWidth();
 
         readSurfaceSpectra(SurfaceSpecName);
+        specWeights = InstrumentConsts.getInstance().getFitWeights(instrument);
+        String lutName = InstrumentConsts.getInstance().getLutName(instrument);
+        int nLutBands = InstrumentConsts.getInstance().getnLutBands(instrument);
+        lut = new MomoLut(lutName, nLutBands).getLookupTable();
 
-        String lutName = "e:/model_data/momo/LUTs_Swansea/MERIS/MERIS_LUT_MOMO_ContinentalI_80_SU.bin";
-        lut = new MomoLut(lutName).getLookupTable();
-        
-
-        final BandMathsOp validBandOp = BandMathsOp.createBooleanExpressionBand("(SM.B0_OK && SM.B2_OK && SM.B3_OK && SM.MIR_OK && SM.LAND && (MIR > 0.045))", sourceProduct);
+        String validExpression = InstrumentConsts.getInstance().getValidExpression(instrument);
+        final BandMathsOp validBandOp = BandMathsOp.createBooleanExpressionBand(validExpression, sourceProduct);
         validBand = validBandOp.getTargetProduct().getBandAt(0);
 
         createTargetProduct();
@@ -142,7 +153,7 @@ public class AerosolOp extends Operator {
      */
     @Override
     public void computeTileStack(Map<Band, Tile> targetTiles, Rectangle targetRectangle, ProgressMonitor pm) throws OperatorException {
-        //TODO create surface elevation map
+        pm.beginTask("begin Aerosol retrieval", rasterHeight);
         System.out.println("Tile:"+targetRectangle.x+"/"+rasterWidth+", "+targetRectangle.y+"/"+rasterHeight+"");
         Map<String, Tile> geomTiles = getTiles(geometryBandList, targetRectangle);
         Map<String, Tile> specTiles = getTiles(specBandList, targetRectangle);
@@ -156,12 +167,10 @@ public class AerosolOp extends Operator {
         Tile[] sdrTiles = new Tile[nSpecBands];
         Tile[] modelTiles = new Tile[nSpecBands];
         for (int i=0; i<nSpecBands; i++) {
-            sdrTiles[i] = targetTiles.get(targetProduct.getBand(String.format("sdr_%1d",i)));
-            modelTiles[i] = targetTiles.get(targetProduct.getBand(String.format("model_%1d",i)));
+            sdrTiles[i] = targetTiles.get(targetProduct.getBand(specBandNames[i]+"_sdr"));
+            modelTiles[i] = targetTiles.get(targetProduct.getBand(specBandNames[i]+"_model"));
         }
         sourceProduct.getBandAt(0).getValidMaskImage();
-
-        PointRetrieval retrieval = new PointRetrieval(lut, soilSurfSpec, vegSurfSpec, specWvl);
 
         int x0 = (int) targetRectangle.getX();
         int y0 = (int) targetRectangle.getY();
@@ -181,24 +190,24 @@ public class AerosolOp extends Operator {
                 }
 
                 if (validTile.getSampleBoolean(iX, iY)) {
-                    float sza = (float) geomTiles.get(geomBandNames[0]).getSampleDouble(iX, iY);
-                    float saa = (float) geomTiles.get(geomBandNames[1]).getSampleDouble(iX, iY);
-                    float vza = (float) geomTiles.get(geomBandNames[2]).getSampleDouble(iX, iY);
-                    float vaa = (float) geomTiles.get(geomBandNames[3]).getSampleDouble(iX, iY);
+                    float sza = 40.0f; //(float) geomTiles.get(geomBandNames[0]).getSampleDouble(iX, iY);
+                    float saa = 10.0f; //(float) geomTiles.get(geomBandNames[1]).getSampleDouble(iX, iY);
+                    float vza = 30.0f; //(float) geomTiles.get(geomBandNames[2]).getSampleDouble(iX, iY);
+                    float vaa = 0.0f; //(float) geomTiles.get(geomBandNames[3]).getSampleDouble(iX, iY);
                     float surfPressure = 1013.25f;
-                    float[] geometry = {sza, getRelativeAzi(saa, vaa), vza};
                     float[] toaReflec = getSpectrum(specTiles, iX, iY);
+                    PixelGeometry geom = new PixelGeometry(sza, saa, vza, vaa);
+                    InputPixelData inPixData = new InputPixelData(geom, surfPressure, specWvl, toaReflec);
+                    emodSpecTau brentFitFct = new emodSpecTau(inPixData, lut, soilSurfSpec, vegSurfSpec, specWeights);
 
-                    RetrievalResults retrievalResult = retrieval.runRetrieval(surfPressure, geometry, toaReflec);
+                    RetrievalResults retrievalResult = new PointRetrieval().runRetrieval(brentFitFct);
+
                     aot = retrievalResult.optAOT;
                     err = retrievalResult.optErr;
-                    scaleVeg = retrievalResult.scaleVeg;
-                    scaleSoil = retrievalResult.scaleSoil;
+                    scaleVeg = (float) retrievalResult.pAtMin[0];
+                    scaleSoil = (float) retrievalResult.pAtMin[1];
                     sdr = retrievalResult.sdr;
-                    for (int i=0; i<nSpecBands; i++) {
-                        model[i] = retrievalResult.scaleSoil * soilSurfSpec[i];
-                        model[i] += retrievalResult.scaleVeg * vegSurfSpec[i];
-                    }
+                    model = retrievalResult.modelSpec;
 
                 }
                 aotTile.setSample(iX, iY, aot);
@@ -209,8 +218,11 @@ public class AerosolOp extends Operator {
                     sdrTiles[i].setSample(iX, iY, sdr[i]);
                     modelTiles[i].setSample(iX, iY, model[i]);
                 }
+                if(pm.isCanceled()) return;
             }
+            pm.worked(1);
         }
+        pm.done();
 
     }
 
@@ -219,8 +231,8 @@ public class AerosolOp extends Operator {
         targetProduct = new Product(productName, productType, rasterWidth, rasterHeight);
 
         ProductUtils.copyMetadata(sourceProduct, targetProduct);
-        ProductUtils.copyGeoCoding(sourceProduct, targetProduct);
         ProductUtils.copyTiePointGrids(sourceProduct, targetProduct);
+        ProductUtils.copyGeoCoding(sourceProduct, targetProduct);
         ProductUtils.copyFlagBands(sourceProduct, targetProduct);
 
         //AerosolHelpers.addAerosolFlagBand(targetProduct, downscaledRasterWidth, downscaledRasterHeight);
@@ -272,7 +284,7 @@ public class AerosolOp extends Operator {
         targetProduct.addBand(targetBand);
 
         for (int i=0; i<nSpecBands; i++) {
-            targetBand = new Band(String.format("sdr_%1d",i), ProductData.TYPE_FLOAT32, rasterWidth, rasterHeight);
+            targetBand = new Band(specBandNames[i]+"_sdr", ProductData.TYPE_FLOAT32, rasterWidth, rasterHeight);
             targetBand.setDescription("");
             targetBand.setNoDataValue(-1);
             targetBand.setNoDataValueUsed(true);
@@ -282,7 +294,7 @@ public class AerosolOp extends Operator {
             targetProduct.addBand(targetBand);
         }
         for (int i=0; i<nSpecBands; i++) {
-            targetBand = new Band(String.format("model_%1d",i), ProductData.TYPE_FLOAT32, rasterWidth, rasterHeight);
+            targetBand = new Band(specBandNames[i]+"_model", ProductData.TYPE_FLOAT32, rasterWidth, rasterHeight);
             targetBand.setDescription("");
             targetBand.setNoDataValue(-1);
             targetBand.setNoDataValueUsed(true);
@@ -293,8 +305,18 @@ public class AerosolOp extends Operator {
         }
     }
 
-    private ArrayList<Band> getBandList(String[] bandNames) {
-        ArrayList<Band> list = new ArrayList<Band>(bandNames.length);
+    private ArrayList<RasterDataNode> getGeomBandList(String instrument) {
+        String[] bandNames = InstrumentConsts.getInstance().getGeomBandNames(instrument);
+        ArrayList<RasterDataNode> list = new ArrayList<RasterDataNode>();
+        for (int i=0; i<bandNames.length; i++) {
+            list.add(sourceProduct.getRasterDataNode(bandNames[i]));
+        }
+        return list;
+    }
+
+    private ArrayList<Band> getSpecBandList(String instrument) {
+        String[] bandNames = InstrumentConsts.getInstance().getSpecBandNames(instrument);
+        ArrayList<Band> list = new ArrayList<Band>();
         for (int i=0; i<bandNames.length; i++) {
             list.add(sourceProduct.getBand(bandNames[i]));
         }
@@ -302,8 +324,21 @@ public class AerosolOp extends Operator {
             Comparator<Band> byWavelength = new WavelengthComparator();
             Collections.sort(list, byWavelength);
         }
-
         return list;
+    }
+
+    private String getInstrument() {
+        String inst = null;
+        String[] supportedInstruments = InstrumentConsts.getInstance().getSupportedInstruments();
+        for (String suppInstr : supportedInstruments) {
+            String[] specBands = InstrumentConsts.getInstance().getSpecBandNames(suppInstr);
+            if (specBands.length > 0 && sourceProduct.containsBand(specBands[0])) {
+                inst = suppInstr;
+                break;
+            }
+        }
+        if (inst.equals(null)) throw new OperatorException("Product not supported.");
+        return inst;
     }
 
     private float getRelativeAzi(float saa, float vaa) {
@@ -328,9 +363,9 @@ public class AerosolOp extends Operator {
         return spec;
     }
 
-    private Map<String, Tile> getTiles(ArrayList<Band> bandList, Rectangle rec) {
+    private <T extends RasterDataNode> Map<String, Tile> getTiles(ArrayList<T> bandList, Rectangle rec) {
         Map<String, Tile> tileMap = new HashMap<String, Tile>(bandList.size());
-        for (Band b : bandList) {
+        for (T b : bandList) {
             tileMap.put(b.getName(), getSourceTile(b, rec, ProgressMonitor.NULL));
         }
         return tileMap;

@@ -13,7 +13,7 @@ public interface MvFunction {
      * @return     value of the function at x
      * @throws   UnsupportedOperationException -
      */
-    double f(double[] x) throws java.lang.UnsupportedOperationException;
+    double f(double[] x);
 
 
     /**
@@ -24,5 +24,5 @@ public interface MvFunction {
      * @throws   UnsupportedOperationException -
      *
      */
-    void g(double[] x, double[] g) throws java.lang.UnsupportedOperationException;
+    void g(double[] x, double[] g);
 }

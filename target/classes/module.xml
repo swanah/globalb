@@ -43,9 +43,9 @@
 
             <!-- TODO - Adapt the following action elements -->
             <parent>globalb</parent>
-            <id>VGT AerosolOp</id>
+            <id>MainAerosolOp</id>
             <helpId>aerosol</helpId>
-            <operatorName>AerosolOp</operatorName>
+            <operatorName>MasterOp</operatorName>
             <text>AerosolOp...</text>
             <dialogTitle>AerosolOp</dialogTitle>
             <targetProductNameSuffix>_AerosolOp</targetProductNameSuffix>

@@ -9,13 +9,8 @@ package org.esa.beam.globalbedo.sdr.util.math;
  */
 public class Powell {
 
-    public double fret;
-    private double[] pt;
-    private double[] ptt;
-    private double[] xit;
-
-    private Linmin linmin = new Linmin();
-    
+    private double fret;
+    private double[] pret;
     private final int ITMAX = 2000;
 
     /**
@@ -50,17 +45,22 @@ public class Powell {
     public void powell(double[] p, double[][] xi, double ftol, MvFunction func)
             throws IllegalMonitorStateException,
             IllegalArgumentException {
+
+        Linmin linmin = new Linmin();
+
         int n = 0;
         if (p.length != xi.length || xi.length != xi[0].length) {
             throw new IllegalArgumentException("dimentions must agree");
         }
         if (n != p.length) {
             n = p.length;
-            pt = new double[n];
-            ptt = new double[n];
-            xit = new double[n];
         }
+        double[] pt = new double[n];
+        double[] ptt = new double[n];
+        double[] xit = new double[n];
+
         fret = func.f(p);
+        pret = p;
 
         System.arraycopy(p, 0, pt, 0, n);
         
@@ -75,6 +75,7 @@ public class Powell {
                 double fptt = fret;
                 linmin.linmin(p, xit, func);
                 fret = linmin.getFret();
+                pret = p;
                 if (Math.abs(fptt - fret) > del) {
                     del = Math.abs(fptt - fret);
                     ibig = i;
@@ -98,6 +99,7 @@ public class Powell {
                 if (t < 0.0) {
                     linmin = new Linmin(p, xit, func);
                     fret = linmin.getFret();
+                    pret = p;
                     for (int j = 0; j < n; j++) {
                         xi[j][ibig] = xi[j][n - 1];
                         xi[j][n - 1] = xit[j];
@@ -106,4 +108,13 @@ public class Powell {
             }
         }
     }
+
+    public double getFmin() {
+        return fret;
+    }
+
+    public double[] getP() {
+        return pret;
+    }
+
 }
