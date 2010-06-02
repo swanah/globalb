@@ -39,6 +39,7 @@ public class MomoLut {
     private final float[] wvl;
     private final float[] values;
     private final float solIrrad;
+    private final LookupTable lut;
 
 
     /**
@@ -75,7 +76,7 @@ public class MomoLut {
             hsf[nHsf-1-i] = hsf[i];
             hsf[i] = swap;
         }
-
+        this.lut = new LookupTable(values, getDimensions());
     }
 
     // public methods
@@ -85,7 +86,7 @@ public class MomoLut {
     }
 
     public LookupTable getLookupTable() {
-        return new LookupTable(values, getDimensions());
+        return this.lut;
     }
 
     public float[] getValues() {
@@ -188,5 +189,4 @@ public class MomoLut {
         }
         return val;
     }
-
 }

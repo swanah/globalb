@@ -14,6 +14,7 @@ import org.esa.beam.framework.gpf.Operator;
 import org.esa.beam.framework.gpf.OperatorException;
 import org.esa.beam.framework.gpf.OperatorSpi;
 import org.esa.beam.framework.gpf.annotations.OperatorMetadata;
+import org.esa.beam.framework.gpf.annotations.Parameter;
 import org.esa.beam.framework.gpf.annotations.SourceProduct;
 import org.esa.beam.framework.gpf.annotations.TargetProduct;
 import org.esa.beam.synergy.operators.CreateMerisOp;
@@ -32,6 +33,8 @@ public class MasterOp  extends Operator {
     private Product sourceProduct;
     @TargetProduct
     private Product targetProduct;
+    @Parameter(defaultValue="false")
+    private boolean retrieveAOT = false;
 
 
     @Override
@@ -47,9 +50,11 @@ public class MasterOp  extends Operator {
 
             reflProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(CreateMerisOp.class), merisParams, sourceProduct);
         }
+        else reflProduct = sourceProduct;
 
-
-        targetProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(AerosolOp.class), GPF.NO_PARAMS, reflProduct);
+        Map<String, Object> aotParams = new HashMap<String, Object>(1);
+        aotParams.put("retrieveAOT", retrieveAOT);
+        targetProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(AerosolOp.class), aotParams, reflProduct);
         setTargetProduct(targetProduct);
     }
 

@@ -5,10 +5,15 @@
 
 package org.esa.beam.globalbedo.sdr.operators;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import org.esa.beam.dataio.envisat.EnvisatConstants;
+import org.esa.beam.framework.gpf.OperatorException;
 import org.esa.beam.meris.brr.Rad2ReflOp;
 
 /**
@@ -44,15 +49,17 @@ public class InstrumentConsts {
         EnvisatConstants.MERIS_VIEW_ZENITH_DS_NAME,
         EnvisatConstants.MERIS_VIEW_AZIMUTH_DS_NAME
     };
+//    private final float[] merisFitWeights = {1.0f, 1.0f, 1.0f, 1.0f, 0.2f, 1.0f, 1.0f, 1.0f,
+//                                             0.05f, 0.05f, 0.05f, 0.05f, 0.05f};
     private final float[] merisFitWeights = {1.0f, 1.0f, 1.0f, 1.0f, 0.2f, 1.0f, 1.0f, 1.0f,
-                                             0.05f, 0.05f, 0.05f, 0.05f, 0.05f};
+                                             0.5f, 0.5f, 0.5f, 0.5f, 0.5f};
     private final String merisValidExpr = "(!l1_flags.INVALID)";
     private final int merisNLutBands = 15;
 
     private final String[] vgtReflectanceNames = {"B0", "B2", "B3", "MIR"};
     private final String[] vgtGeomNames = {"SZA", "SAA", "VZA", "VAA"};
     private final float[] vgtFitWeights = {1.0f, 1.0f, 1.0f, 1.0f};
-    private final String  vgtValidExpr = "(SM.B0_OK && SM.B2_OK && SM.B3_OK && SM.MIR_OK && SM.LAND && (MIR > 0.045))";
+    private final String  vgtValidExpr = "(SM.B0_GOOD && SM.B2_GOOD && SM.B3_GOOD && SM.MIR_GOOD && SM.LAND && (B0<493*0.0005 || MIR<180*0.0005 ))";
     private final int vgtNLutBands = 4;
 
     private final Map<String, String[]> reflecNames;
@@ -61,9 +68,17 @@ public class InstrumentConsts {
     private final Map<String, String> validExpr;
     private final Map<String, Integer> nLutBands;
 
-    private final String lutPath = "e:/model_data/momo/LUTs_Swansea/%INSTRUMENT%/%INSTRUMENT%_LUT_MOMO_ContinentalI_80_SU.bin";
+    private final String lutLocaFile = System.getProperty("user.home")
+                    + File.separator + ".beam"
+                    + File.separator + "ga-aerosol"
+                    + File.separator + "lut.location";
+    private final String lutPattern = "%INSTRUMENT%/%INSTRUMENT%_LUT_MOMO_ContinentalI_80_SU_noG.bin";
+    private final String lutPath;
+    //private final String lutPath = "e:/model_data/momo/LUTs_Swansea/%INSTRUMENT%/%INSTRUMENT%_LUT_MOMO_ContinentalI_80_SU_noG.bin";
 
     private InstrumentConsts() {
+        lutPath = getLutPath() + "/" + lutPattern;
+
         this.supportedInstruments = new String[]{"MERIS", "VGT"};
 
         this.reflecNames = new HashMap<String, String[]>();
@@ -105,6 +120,7 @@ public class InstrumentConsts {
     }
 
     public String getLutName(String instrument) {
+
         return lutPath.replace("%INSTRUMENT%", instrument);
     }
 
@@ -122,6 +138,29 @@ public class InstrumentConsts {
 
     public int getnLutBands(String instrument) {
         return nLutBands.get(instrument);
+    }
+
+    private String getLutPath() {
+        String lutP = null;
+        BufferedReader reader = null;
+        try{
+            reader = new BufferedReader(new FileReader(lutLocaFile));
+            String line;
+            while ((line = reader.readLine())!= null) {
+                if (line.startsWith("ga.lutInstallDir")) {
+                    String[] split = line.split("=");
+                    if(split.length > 1) {
+                        lutP = split[1].trim();
+                        break;
+                    }
+                }
+            }
+        } catch (IOException ex) {
+            throw new OperatorException(ex);
+        }
+        if (lutP == null) throw new OperatorException("Lut install dir  not found");
+        if (lutP.endsWith(File.separator) || lutP.endsWith("/")) lutP = lutP.substring(0, lutP.length()-1);
+        return lutP;
     }
 
 }

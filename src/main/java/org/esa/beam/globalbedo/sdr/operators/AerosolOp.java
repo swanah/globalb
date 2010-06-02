@@ -45,6 +45,8 @@ import org.esa.beam.globalbedo.sdr.lutUtils.MomoLut;
 import org.esa.beam.framework.datamodel.ProductData;
 import org.esa.beam.framework.datamodel.RasterDataNode;
 import org.esa.beam.framework.gpf.GPF;
+import org.esa.beam.framework.gpf.annotations.Parameter;
+import org.esa.beam.globalbedo.sdr.lutUtils.MomoSynLut;
 import org.esa.beam.gpf.operators.standard.BandMathsOp;
 import org.esa.beam.meris.brr.Rad2ReflOp;
 import org.esa.beam.util.math.LookupTable;
@@ -65,7 +67,8 @@ public class AerosolOp extends Operator {
     private Product sourceProduct;
     @TargetProduct
     private Product targetProduct;
-
+    @Parameter(defaultValue="false")
+    private boolean retrieveAOT = false;
     //@Parameter
     private String SurfaceSpecName = "surface_reflectance_spec.asc";
 
@@ -90,6 +93,9 @@ public class AerosolOp extends Operator {
     private LookupTable lut;
     //private PointRetrieval retrieval;
     private Band validBand;
+    private LookupTable[] synLut;
+    private float[] lutAlb;
+    private boolean useSynLut = false;
 
     /**
      * Default constructor. The graph processing framework
@@ -129,10 +135,19 @@ public class AerosolOp extends Operator {
 
         readSurfaceSpectra(SurfaceSpecName);
         specWeights = InstrumentConsts.getInstance().getFitWeights(instrument);
-        String lutName = InstrumentConsts.getInstance().getLutName(instrument);
-        int nLutBands = InstrumentConsts.getInstance().getnLutBands(instrument);
-        lut = new MomoLut(lutName, nLutBands).getLookupTable();
-
+        if (useSynLut){
+            lut = null;
+            MomoSynLut momoSynLut = new MomoSynLut("e:/model_data/momo/bin", 8, "MERIS", specWvl);
+            lutAlb = momoSynLut.getAlbDim();
+            synLut = momoSynLut.getLut();
+        }
+        else {
+            String lutName = InstrumentConsts.getInstance().getLutName(instrument);
+            int nLutBands = InstrumentConsts.getInstance().getnLutBands(instrument);
+            lut = new MomoLut(lutName, nLutBands).getLookupTable();
+            lutAlb = null;
+            synLut = null;
+        }
         String validExpression = InstrumentConsts.getInstance().getValidExpression(instrument);
         final BandMathsOp validBandOp = BandMathsOp.createBooleanExpressionBand(validExpression, sourceProduct);
         validBand = validBandOp.getTargetProduct().getBandAt(0);
@@ -164,13 +179,13 @@ public class AerosolOp extends Operator {
         Tile errTile = targetTiles.get(targetProduct.getBand("aot_err"));
         Tile scaleVegTile = targetTiles.get(targetProduct.getBand("scaleVeg"));
         Tile scaleSoilTile = targetTiles.get(targetProduct.getBand("scaleSoil"));
+        Tile addConstTile = targetTiles.get(targetProduct.getBand("addConst"));
         Tile[] sdrTiles = new Tile[nSpecBands];
         Tile[] modelTiles = new Tile[nSpecBands];
         for (int i=0; i<nSpecBands; i++) {
             sdrTiles[i] = targetTiles.get(targetProduct.getBand(specBandNames[i]+"_sdr"));
             modelTiles[i] = targetTiles.get(targetProduct.getBand(specBandNames[i]+"_model"));
         }
-        sourceProduct.getBandAt(0).getValidMaskImage();
 
         int x0 = (int) targetRectangle.getX();
         int y0 = (int) targetRectangle.getY();
@@ -182,6 +197,7 @@ public class AerosolOp extends Operator {
                 float err = (float) errTile.getRasterDataNode().getGeophysicalNoDataValue();
                 float scaleVeg = (float) scaleVegTile.getRasterDataNode().getGeophysicalNoDataValue();
                 float scaleSoil = (float) scaleSoilTile.getRasterDataNode().getGeophysicalNoDataValue();
+                float addConst = (float) addConstTile.getRasterDataNode().getGeophysicalNoDataValue();
                 float[] sdr = new float[nSpecBands];
                 float[] model = new float[nSpecBands];
                 for (int i=0; i<nSpecBands; i++) {
@@ -190,30 +206,45 @@ public class AerosolOp extends Operator {
                 }
 
                 if (validTile.getSampleBoolean(iX, iY)) {
-                    float sza = 40.0f; //(float) geomTiles.get(geomBandNames[0]).getSampleDouble(iX, iY);
-                    float saa = 10.0f; //(float) geomTiles.get(geomBandNames[1]).getSampleDouble(iX, iY);
-                    float vza = 30.0f; //(float) geomTiles.get(geomBandNames[2]).getSampleDouble(iX, iY);
-                    float vaa = 0.0f; //(float) geomTiles.get(geomBandNames[3]).getSampleDouble(iX, iY);
+/*
+                    float sza = 40.0f;
+                    float saa = 10.0f;
+                    float vza = 30.0f;
+                    float vaa = 0.0f;
+*/
+                    float sza = (float) geomTiles.get(geomBandNames[0]).getSampleDouble(iX, iY);
+                    float saa = (float) geomTiles.get(geomBandNames[1]).getSampleDouble(iX, iY);
+                    float vza = (float) geomTiles.get(geomBandNames[2]).getSampleDouble(iX, iY);
+                    float vaa = (float) geomTiles.get(geomBandNames[3]).getSampleDouble(iX, iY);
                     float surfPressure = 1013.25f;
                     float[] toaReflec = getSpectrum(specTiles, iX, iY);
                     PixelGeometry geom = new PixelGeometry(sza, saa, vza, vaa);
                     InputPixelData inPixData = new InputPixelData(geom, surfPressure, specWvl, toaReflec);
-                    emodSpecTau brentFitFct = new emodSpecTau(inPixData, lut, soilSurfSpec, vegSurfSpec, specWeights);
+                    emodSpecTau brentFitFct;
+                    if (useSynLut){
+                        brentFitFct = new emodSpecTau(inPixData, synLut, lutAlb, soilSurfSpec, vegSurfSpec, specWeights);
+                    }
+                    else {
+                        brentFitFct = new emodSpecTau(inPixData, lut, soilSurfSpec, vegSurfSpec, specWeights);
+                    }
 
-                    RetrievalResults retrievalResult = new PointRetrieval().runRetrieval(brentFitFct);
+                    RetrievalResults retrievalResult;
+                    if (retrieveAOT) retrievalResult = new PointRetrieval().runRetrieval(brentFitFct);
+                    else retrievalResult = new PointRetrieval().retrieveSDR(brentFitFct, 0.1);
 
                     aot = retrievalResult.optAOT;
                     err = retrievalResult.optErr;
                     scaleVeg = (float) retrievalResult.pAtMin[0];
                     scaleSoil = (float) retrievalResult.pAtMin[1];
+                    addConst = (float) retrievalResult.pAtMin[2];
                     sdr = retrievalResult.sdr;
                     model = retrievalResult.modelSpec;
-
                 }
                 aotTile.setSample(iX, iY, aot);
                 errTile.setSample(iX, iY, err);
                 scaleVegTile.setSample(iX, iY, scaleVeg);
                 scaleSoilTile.setSample(iX, iY, scaleSoil);
+                addConstTile.setSample(iX, iY, addConst);
                 for (int i=0; i<nSpecBands; i++) {
                     sdrTiles[i].setSample(iX, iY, sdr[i]);
                     modelTiles[i].setSample(iX, iY, model[i]);
@@ -239,7 +270,7 @@ public class AerosolOp extends Operator {
 
         createTargetProductBands();
 
-        targetProduct.setPreferredTileSize(128,128);
+        //targetProduct.setPreferredTileSize(128,128);
         setTargetProduct(targetProduct);
 
     }
@@ -277,6 +308,13 @@ public class AerosolOp extends Operator {
         targetProduct.addBand(targetBand);
 
         targetBand = new Band("scaleSoil", ProductData.TYPE_FLOAT32, rasterWidth, rasterHeight);
+        targetBand.setDescription("");
+        targetBand.setNoDataValue(-1);
+        targetBand.setNoDataValueUsed(true);
+        targetBand.setUnit("dl");
+        targetProduct.addBand(targetBand);
+
+        targetBand = new Band("addConst", ProductData.TYPE_FLOAT32, rasterWidth, rasterHeight);
         targetBand.setDescription("");
         targetBand.setNoDataValue(-1);
         targetBand.setNoDataValueUsed(true);

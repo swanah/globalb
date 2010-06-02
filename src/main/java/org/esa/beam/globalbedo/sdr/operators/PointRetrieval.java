@@ -34,6 +34,18 @@ public class PointRetrieval {
         return results;
     }
 
+    public RetrievalResults retrieveSDR(UnivRetrievalFunction brentFitFct, double aot) {
+        boolean failed = false;
+        float optAOT = (float) aot;
+        float optErr = (float) brentFitFct.f(aot);
+        float retrievalErr = calcRetrievalErr();
+        RetrievalResults results = new RetrievalResults(failed, optAOT, optErr, retrievalErr);
+        results.sdr = brentFitFct.getSurfReflec(optAOT);
+        results.modelSpec = brentFitFct.getModelReflec();
+        results.pAtMin = brentFitFct.getpAtMin();
+        return results;
+    }
+
 // private methods
 
     private float calcRetrievalErr() {

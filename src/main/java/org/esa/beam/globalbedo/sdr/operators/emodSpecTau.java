@@ -14,6 +14,8 @@ import org.esa.beam.util.math.LookupTable;
 public class emodSpecTau implements UnivRetrievalFunction {
 
     private final LookupTable lut;
+    private final LookupTable[] synLut;
+    private final float[] lutAlbedo;
     private final InputPixelData inPix;
     private final float[] soilSpec;
     private final float[] vegSpec;
@@ -22,10 +24,15 @@ public class emodSpecTau implements UnivRetrievalFunction {
     private final float penalty;
     private final float ndvi;
     private double[] pAtMin;
+    private final boolean isSyn;
+    private final double rad2rfl;
 
     public emodSpecTau(InputPixelData inPix, LookupTable lut,
                        float[] soilSpec, float[] vegSpec, float[] specWeights) {
         this.lut = lut;
+        this.synLut = null;
+        this.lutAlbedo = null;
+        this.isSyn = false;
         this.inPix = inPix;
         this.soilSpec = soilSpec;
         this.vegSpec  = vegSpec;
@@ -40,7 +47,33 @@ public class emodSpecTau implements UnivRetrievalFunction {
         // determining constraints for the optimisation
         this.llimit = 5e-6f;
         this.penalty = 1000f;
-        this.pAtMin = null;
+        this.pAtMin = new double[]{-1, -1, -1};
+        this.rad2rfl = Math.PI / Math.cos(Math.toRadians(inPix.geom.sza));
+
+    }
+
+    public emodSpecTau(InputPixelData inPix, LookupTable[] lut, float[] lutAlbedo,
+                       float[] soilSpec, float[] vegSpec, float[] specWeights) {
+        this.lut = null;
+        this.synLut = lut;
+        this.lutAlbedo = lutAlbedo;
+        this.isSyn = true;
+        this.inPix = inPix;
+        this.soilSpec = soilSpec;
+        this.vegSpec  = vegSpec;
+        this.specWeights = specWeights;
+
+        // calculate NDVI
+        // to make start point of optimization
+        // dependent of NDVI
+        this.ndvi = calcNdvi(685.0f, 865.0f);
+
+        // constants used in f()
+        // determining constraints for the optimisation
+        this.llimit = 5e-6f;
+        this.penalty = 1000f;
+        this.pAtMin = new double[]{-1, -1, -1};
+        this.rad2rfl = Math.PI / Math.cos(Math.toRadians(inPix.geom.sza));
     }
 
 
@@ -48,7 +81,7 @@ public class emodSpecTau implements UnivRetrievalFunction {
     public double f(double tau) {
         float fmin = 0;
 
-        float[] surfReflec = invertToaRefl(tau);
+        float[] surfReflec = getSurfReflec((float) tau);
 
         // inversion can lead to overcorrection of atmosphere
         // and thus to too small surface reflectances
@@ -62,7 +95,7 @@ public class emodSpecTau implements UnivRetrievalFunction {
         if (fmin <= 0.0f) {
             // initial vector p to start Powell optimization
             
-            double[] pSpec = {ndvi, 1.0-ndvi};
+            double[] pSpec = {ndvi, 1.0-ndvi, 0};
 
             // defining unit matrix as base of the parameter space
             // needed for Powell
@@ -89,7 +122,7 @@ public class emodSpecTau implements UnivRetrievalFunction {
     public float[] getModelReflec() {
         float[] model = new float[soilSpec.length];
         for (int i=0; i<model.length; i++) {
-            model[i] = (float) (pAtMin[0] * vegSpec[i] + pAtMin[1] * soilSpec[i]);
+            model[i] = (float) (pAtMin[0] * vegSpec[i] + pAtMin[1] * soilSpec[i] + pAtMin[2]);
         }
         return model;
     }
@@ -101,7 +134,7 @@ public class emodSpecTau implements UnivRetrievalFunction {
 
     @Override
     public float[] getSurfReflec(float aot) {
-        return invertToaRefl(aot);
+        return (isSyn) ? invertSynLut(aot) : invertToaRefl(aot);
     }
 
 
@@ -110,7 +143,7 @@ public class emodSpecTau implements UnivRetrievalFunction {
         int iNir = 0;
         for(int i=0; i<inPix.nSpecWvl; i++){
             if (Math.abs(inPix.specWvl[i]-ndviRed) < Math.abs(inPix.specWvl[iRed]-ndviRed)) iRed = i;
-            if (Math.abs(inPix.specWvl[i]-ndviNir) < Math.abs(inPix.specWvl[iNir]-ndviNir)) iRed = i;
+            if (Math.abs(inPix.specWvl[i]-ndviNir) < Math.abs(inPix.specWvl[iNir]-ndviNir)) iNir = i;
         }
         return (inPix.toaReflec[iNir] - inPix.toaReflec[iRed])
                 / (inPix.toaReflec[iNir] + inPix.toaReflec[iRed]);
@@ -130,8 +163,49 @@ public class emodSpecTau implements UnivRetrievalFunction {
             double tupTdown = lut.getValue(x);
             x[6] = 2;
             double spherAlb = lut.getValue(x);
-            double a = (inPix.toaReflec[i] - rhoPath) / tupTdown;
+            double a = (inPix.toaReflec[i] - (rhoPath*rad2rfl)) / (tupTdown/Math.PI*rad2rfl);
             sdr[i] = (float) (a / (1 + spherAlb * a));
+        }
+        return sdr;
+    }
+
+    private float[] invertSynLut(double tau) {
+        float[] sdr = new float[inPix.nSpecWvl];
+        for (int i=0; i<inPix.nSpecWvl; i++){
+            int iAlb = 0;
+            double[] x1 = {Math.log(inPix.surfPressure),
+                           inPix.geom.vza,
+                           inPix.geom.razi,
+                           inPix.geom.sza,
+                           tau,
+                           lutAlbedo[iAlb]};
+            double toa1 = rad2rfl * synLut[i].getValue(x1);
+            while (iAlb < lutAlbedo.length-1 && toa1 < inPix.toaReflec[i]){
+                iAlb++;
+                x1[5] = lutAlbedo[iAlb];
+                toa1 = rad2rfl * synLut[i].getValue(x1);
+            }
+            if (iAlb <= 0) {
+                iAlb = 1;
+                x1[5] = lutAlbedo[iAlb];
+                toa1 = rad2rfl * synLut[i].getValue(x1);
+            }
+            if (iAlb >= lutAlbedo.length) {
+                iAlb = lutAlbedo.length-1;
+                x1[5] = lutAlbedo[iAlb];
+                toa1 = rad2rfl * synLut[i].getValue(x1);
+            }
+            double[] x0 = {Math.log(inPix.surfPressure),
+                           inPix.geom.vza,
+                           inPix.geom.razi,
+                           inPix.geom.sza,
+                           tau,
+                           lutAlbedo[iAlb-1]};
+            double toa0 = rad2rfl * synLut[i].getValue(x0);
+            double alb0 = lutAlbedo[iAlb-1];
+            double alb1 = lutAlbedo[iAlb];
+            
+            sdr[i] = (float) (alb0 + (inPix.toaReflec[i]-toa0)*(alb1-alb0)/(toa1-toa0));
         }
         return sdr;
     }
