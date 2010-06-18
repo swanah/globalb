@@ -55,18 +55,25 @@ public class InstrumentConsts {
                                              0.5f, 0.5f, 0.5f, 0.5f, 0.5f};
     private final String merisValidExpr = "(!l1_flags.INVALID)";
     private final int merisNLutBands = 15;
+    private final String merisSurfPressureName = "atm_press";
+    private final String merisOzoneName = "ozone";
 
     private final String[] vgtReflectanceNames = {"B0", "B2", "B3", "MIR"};
     private final String[] vgtGeomNames = {"SZA", "SAA", "VZA", "VAA"};
     private final float[] vgtFitWeights = {1.0f, 1.0f, 1.0f, 1.0f};
-    private final String  vgtValidExpr = "(SM.B0_GOOD && SM.B2_GOOD && SM.B3_GOOD && SM.MIR_GOOD && SM.LAND && (B0<493*0.0005 || MIR<180*0.0005 ))";
+    private final String  vgtCloudExpr = "( MIR<180*0.0005 )";
+    private final String  vgtValidExpr = "(SM.B0_GOOD && SM.B2_GOOD && SM.B3_GOOD && SM.MIR_GOOD && SM.LAND && " + vgtCloudExpr + ")";
     private final int vgtNLutBands = 4;
+    private final String vgtSurfPressureName = "surfPressEstimate";
+    private final String vgtOzoneName = "OG";
 
     private final Map<String, String[]> reflecNames;
     private final Map<String, String[]> geomNames;
     private final Map<String, float[]> fitWeights;
     private final Map<String, String> validExpr;
     private final Map<String, Integer> nLutBands;
+    private final Map<String, String> surfPressureName;
+    private final Map<String, String> ozoneName;
 
     private final String lutLocaFile = System.getProperty("user.home")
                     + File.separator + ".beam"
@@ -81,25 +88,33 @@ public class InstrumentConsts {
 
         this.supportedInstruments = new String[]{"MERIS", "VGT"};
 
-        this.reflecNames = new HashMap<String, String[]>();
+        this.reflecNames = new HashMap<String, String[]>(supportedInstruments.length);
         reflecNames.put(supportedInstruments[0], merisReflectanceNames);
         reflecNames.put(supportedInstruments[1], vgtReflectanceNames);
 
-        this.geomNames = new HashMap<String, String[]>();
+        this.geomNames = new HashMap<String, String[]>(supportedInstruments.length);
         geomNames.put(supportedInstruments[0], merisGeomNames);
         geomNames.put(supportedInstruments[1], vgtGeomNames);
 
-        this.fitWeights = new HashMap<String, float[]>();
+        this.fitWeights = new HashMap<String, float[]>(supportedInstruments.length);
         fitWeights.put(supportedInstruments[0], merisFitWeights);
         fitWeights.put(supportedInstruments[1], vgtFitWeights);
 
-        this.validExpr = new HashMap<String, String>();
+        this.validExpr = new HashMap<String, String>(supportedInstruments.length);
         validExpr.put(supportedInstruments[0], merisValidExpr);
         validExpr.put(supportedInstruments[1], vgtValidExpr);
 
-        this.nLutBands = new HashMap<String, Integer>();
+        this.nLutBands = new HashMap<String, Integer>(supportedInstruments.length);
         nLutBands.put(supportedInstruments[0], merisNLutBands);
         nLutBands.put(supportedInstruments[1], vgtNLutBands);
+
+        this.surfPressureName = new HashMap<String, String>(supportedInstruments.length);
+        surfPressureName.put(supportedInstruments[0], merisSurfPressureName);
+        surfPressureName.put(supportedInstruments[1], vgtSurfPressureName);
+
+        this.ozoneName = new HashMap<String, String>(supportedInstruments.length);
+        ozoneName.put(supportedInstruments[0], merisOzoneName);
+        ozoneName.put(supportedInstruments[1], vgtOzoneName);
     }
 
 
@@ -138,6 +153,14 @@ public class InstrumentConsts {
 
     public int getnLutBands(String instrument) {
         return nLutBands.get(instrument);
+    }
+
+    public String getSurfPressureName(String instrument) {
+        return surfPressureName.get(instrument);
+    }
+
+    public String getOzoneName(String instrument) {
+        return ozoneName.get(instrument);
     }
 
     private String getLutPath() {

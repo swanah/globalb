@@ -5,11 +5,19 @@
 
 package org.esa.beam.globalbedo.sdr.lutUtils;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import org.esa.beam.framework.gpf.OperatorException;
 import org.esa.beam.util.math.LookupTable;
 
 /**
@@ -40,17 +48,18 @@ public class MomoLut {
     private final float[] values;
     private final float solIrrad;
     private final LookupTable lut;
+    private final float[] o3corr;
 
 
     /**
      * standart constructor reading the binary LUT file from "lutName"
      * the number of channels or wavelength for which the LUTs is given
      * is not contained in the file
+     * @param instrument - instrument name
      * @param lutName - file name of the binary LUTs (original format from FUB)
      * @param nWvl - number of spectral channels
      */
     public MomoLut(String lutName, int nWvl) {
-
         this.nParameter = 4;  // the 4 parameter i the LUT as described above
         this.nWvl = nWvl;
 
@@ -77,6 +86,7 @@ public class MomoLut {
             hsf[i] = swap;
         }
         this.lut = new LookupTable(values, getDimensions());
+        this.o3corr = readO3corr();
     }
 
     // public methods
@@ -107,6 +117,10 @@ public class MomoLut {
 
     public float[] getHsf() {
         return hsf;
+    }
+
+    public float[] getO3corr() {
+        return o3corr;
     }
 
     public float[] getSza() {
@@ -188,5 +202,43 @@ public class MomoLut {
             }
         }
         return val;
+    }
+
+    private float[] readO3corr() {
+        final InputStream inputStream = MomoLut.class.getResourceAsStream("o3Correction.asc");
+        BufferedReader reader = null;
+        reader = new BufferedReader(new InputStreamReader(inputStream));
+        String line;
+        float[] o3cwvl = new float[15+4+4];
+        float[] o3c = new float[15+4+4];
+        try {
+            int i = 0;
+            while ((line = reader.readLine()) != null) {
+                line = line.trim();
+                if (!(line.isEmpty() || line.startsWith("#") || line.startsWith("*"))) {
+                    String[] stmp = line.split("[ \t]+");
+                    o3cwvl[i] = Float.valueOf(stmp[1]);
+                    o3c[i] = Float.valueOf(stmp[2]);
+                    i++;
+                }
+            }
+        } catch (IOException ex) {
+            Logger.getLogger(MomoLut.class.getName()).log(Level.SEVERE, null, ex);
+            throw new OperatorException(ex.getMessage(), ex.getCause());
+        }
+        
+        return getO3CorrOfBands(o3c, o3cwvl, wvl);
+    }
+
+    private float[] getO3CorrOfBands(float[] o3c, float[] o3cWvl, float[] lutWvl) {
+        int jmin = 0;
+        float[] lutO3c = new float[lutWvl.length];
+        for (int i=0; i<lutWvl.length; i++){
+            for (int j=0; j<o3cWvl.length; j++) {
+                if (Math.abs(o3cWvl[j]-lutWvl[i]) < Math.abs(o3cWvl[jmin]-lutWvl[i])) jmin = j;
+            }
+            lutO3c[i] = o3c[jmin];
+        }
+        return lutO3c;
     }
 }

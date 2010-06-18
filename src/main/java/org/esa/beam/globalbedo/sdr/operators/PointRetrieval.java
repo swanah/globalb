@@ -6,6 +6,7 @@
 package org.esa.beam.globalbedo.sdr.operators;
 
 import org.esa.beam.globalbedo.sdr.util.math.Brent;
+import ucar.nc2.iosp.netcdf3.SPFactory;
 
 /**
  * Provides aerosol retrieval class
