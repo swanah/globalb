@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.esa.beam.globalbedo.sdr</groupId>
     <artifactId>GAaerosol</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>1.0_4.8</version>
     <name>BEAM GlobAlbedo Aerosol</name>
     <description></description>
     <packaging>jar</packaging>
@@ -18,9 +18,17 @@
            -->
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
+        <beam.version>4.8</beam.version>
+        <ceres.version>0.11</ceres.version>
+<!--
+        <beam.version>4.8</beam.version>
+        <ceres.version>0.11</ceres.version>
         <beam.version>4.8-SNAPSHOT</beam.version>
         <ceres.version>0.11-SNAPSHOT</ceres.version>
-    </properties>
+        <beam.version>4.7.1</beam.version>
+        <ceres.version>0.10.2</ceres.version>
+-->
+</properties>
 
 
     <dependencies>
@@ -48,32 +56,32 @@
         <dependency>
             <groupId>org.esa.beam</groupId>
             <artifactId>beam-envisat-reader</artifactId>
-            <version>1.3.101</version>
+            <version>1.3.200</version>
         </dependency>
         <dependency>
             <groupId>org.esa.beam</groupId>
             <artifactId>beam-spot-vgt-reader</artifactId>
-            <version>1.0-SNAPSHOT</version>
-        </dependency>
-        <dependency>
-            <groupId>org.esa.beam</groupId>
-            <artifactId>beam-meris-brr</artifactId>
-            <version>2.2-SNAPSHOT</version>
-        </dependency>
-        <dependency>
-            <groupId>org.esa.beam.synergy</groupId>
-            <artifactId>beam-meris-aatsr-synergy-cloud-screening</artifactId>
-            <version>1.1.1</version>
-        </dependency>
-        <dependency>
-            <groupId>org.esa.beam.synergy</groupId>
-            <artifactId>beam-meris-aatsr-synergy-preprocessing</artifactId>
-            <version>1.1.1</version>
+            <version>1.0</version>
         </dependency>
         <dependency>
             <groupId>org.esa.beam.akh</groupId>
             <artifactId>CreateElevationBand</artifactId>
             <version>1.0-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>org.esa.beam.synergy</groupId>
+            <artifactId>beam-meris-aatsr-synergy-cloud-screening</artifactId>
+            <version>1.1.1-akh</version>
+        </dependency>
+        <dependency>
+            <groupId>org.esa.beam.synergy</groupId>
+            <artifactId>beam-meris-aatsr-synergy-preprocessing</artifactId>
+            <version>1.1.1-akh</version>
+        </dependency>
+        <dependency>
+            <groupId>org.esa.beam</groupId>
+            <artifactId>beam-meris-brr</artifactId>
+            <version>2.2</version>
         </dependency>
     </dependencies>
 
@@ -104,7 +112,7 @@
             </plugin>
         </plugins>
     </reporting>
-<!--
+
     <repositories>
         <repository>
             <id>bc-mvn</id>
@@ -130,5 +138,4 @@
             <url>http://download.osgeo.org/webdav/geotools/</url>
         </repository>
     </repositories>
--->
 </project>

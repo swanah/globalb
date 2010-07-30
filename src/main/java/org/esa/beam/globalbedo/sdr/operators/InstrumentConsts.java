@@ -9,12 +9,10 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import org.esa.beam.dataio.envisat.EnvisatConstants;
 import org.esa.beam.framework.gpf.OperatorException;
-import org.esa.beam.meris.brr.Rad2ReflOp;
 
 /**
  * Instrument specific constants
@@ -62,7 +60,8 @@ public class InstrumentConsts {
     private final String[] vgtGeomNames = {"SZA", "SAA", "VZA", "VAA"};
     private final float[] vgtFitWeights = {1.0f, 1.0f, 1.0f, 1.0f};
     private final String  vgtCloudExpr = "( MIR<180*0.0005 )";
-    private final String  vgtValidExpr = "(SM.B0_GOOD && SM.B2_GOOD && SM.B3_GOOD && SM.MIR_GOOD && SM.LAND && " + vgtCloudExpr + ")";
+    //private final String  vgtValidExpr = "(SM.B0_GOOD && SM.B2_GOOD && SM.B3_GOOD && SM.MIR_GOOD && SM.LAND && " + vgtCloudExpr + ")";
+    private final String  vgtValidExpr = "(SM.B0_GOOD && SM.B2_GOOD && SM.B3_GOOD && SM.MIR_GOOD && " + vgtCloudExpr + ")";
     private final int vgtNLutBands = 4;
     private final String vgtSurfPressureName = "surfPressEstimate";
     private final String vgtOzoneName = "OG";
@@ -79,7 +78,8 @@ public class InstrumentConsts {
                     + File.separator + ".beam"
                     + File.separator + "ga-aerosol"
                     + File.separator + "lut.location";
-    private final String lutPattern = "%INSTRUMENT%/%INSTRUMENT%_LUT_MOMO_ContinentalI_80_SU_noG.bin";
+    private final String lutPattern = "%INSTRUMENT%/%INSTRUMENT%_LUT_MOMO_ContinentalI_80_SDR_noG.bin";
+    //private final String lutPattern = "%INSTRUMENT%/%INSTRUMENT%_LUT_MOMO_ContinentalI_80_SU_noG_Kx-AOD.bin";
     private final String lutPath;
     //private final String lutPath = "e:/model_data/momo/LUTs_Swansea/%INSTRUMENT%/%INSTRUMENT%_LUT_MOMO_ContinentalI_80_SU_noG.bin";
 

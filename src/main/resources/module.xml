@@ -1,11 +1,11 @@
 <module>
     <manifestVersion>1.0.0</manifestVersion>
-    <symbolicName>gpftestop1</symbolicName>
-    <name>gpftestop1</name>
-    <version>1.0-SNAPSHOT</version>
+    <symbolicName>beam-globalbedo-aerosol</symbolicName>
+    <name>BEAM GlobAlbedo Aerosol</name>
+    <version>1.0_4.8</version>
 
     <!-- TODO - As needed, adapt metadata elements here -->
-    <description>BEAM gpftestop1</description>
+    <description>BEAM GlobAlbedo Aerosol</description>
     <vendor>Brockmann Consult GmbH</vendor>
     <contactAddress>Max Planck Str.2, 21502 Geesthacht (Germany)</contactAddress>
     <copyright>(C) 2010 by Brockmann Consult GmbH</copyright>
@@ -24,6 +24,9 @@
         <module>beam-gpf</module>
     </dependency>
     <dependency>
+        <module>beam-envisat-reader</module>
+    </dependency>
+    <dependency>
         <module>beam-spot-vgt-reader</module>
     </dependency>
     <dependency>
@@ -32,7 +35,15 @@
     </dependency>
     <dependency>
         <module>CreateElevationBand</module>
-        <optional>true</optional>
+    </dependency>
+    <dependency>
+        <module>beam-meris-brr</module>
+    </dependency>
+    <dependency>
+        <module>beam-meris-aatsr-synergy-preprocessing</module>
+    </dependency>
+    <dependency>
+        <module>beam-meris-aatsr-synergy-cloud-screening</module>
     </dependency>
 
     <extension point="beam-ui:actions">
@@ -44,8 +55,6 @@
         </action>
         <action>
             <class>org.esa.beam.visat.actions.DefaultOperatorAction</class>
-
-            <!-- TODO - Adapt the following action elements -->
             <parent>globalb</parent>
             <id>MainAerosolOp</id>
             <helpId>aerosol</helpId>

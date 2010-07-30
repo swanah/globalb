@@ -60,7 +60,7 @@ public class MomoLut {
      * @param nWvl - number of spectral channels
      */
     public MomoLut(String lutName, int nWvl) {
-        this.nParameter = 4;  // the 4 parameter i the LUT as described above
+        this.nParameter = 5;  // the 4 parameter i the LUT as described above
         this.nWvl = nWvl;
 
         ByteBuffer bb = readFileToByteBuffer(lutName);
@@ -92,7 +92,9 @@ public class MomoLut {
     // public methods
 
     public float[][] getDimensions() {
-        return new float[][]{hsf, vza, sza, azi, wvl, aot, new float[]{0,1,2,3}};
+        float[] parDim = new float[nParameter];
+        for (int i=0; i<nParameter; i++) parDim[i] = i;
+        return new float[][]{hsf, vza, sza, azi, wvl, aot, parDim};
     }
 
     public LookupTable getLookupTable() {
@@ -169,12 +171,14 @@ public class MomoLut {
             bb = ByteBuffer.wrap(buffer).order(ByteOrder.LITTLE_ENDIAN);
         } catch (Exception ex) {
             System.err.println(ex.getMessage());
+            throw new OperatorException(ex.getCause());
         } finally {
             if (fis != null) {
                 try {
                     fis.close();
                 } catch (IOException ex) {
                     System.err.println(ex.getMessage());
+                    throw new OperatorException(ex.getCause());
                 }
             }
         }
