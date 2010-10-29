@@ -11,7 +11,7 @@ public class Powell {
 
     private double fret;
     private double[] pret;
-    private final int ITMAX = 2000;
+    private final int ITMAX = 1000;
 
     /**
      *  Constructor for the powell object

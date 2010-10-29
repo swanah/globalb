@@ -34,10 +34,21 @@
         <optional>true</optional>
     </dependency>
     <dependency>
-        <module>CreateElevationBand</module>
+        <module>beam-aatsr-recalibration</module>
     </dependency>
     <dependency>
         <module>beam-meris-brr</module>
+    </dependency>
+    <!-- for use of Synergy LUTs -->
+    <dependency>
+        <module>beam-meris-aatsr-synergy-core</module>
+    </dependency>
+
+    <dependency>
+        <module>beam-meris-l2auxdata</module>
+    </dependency>
+    <dependency>
+        <module>beam-meris-sdr</module>
     </dependency>
     <dependency>
         <module>beam-meris-aatsr-synergy-preprocessing</module>
@@ -56,12 +67,62 @@
         <action>
             <class>org.esa.beam.visat.actions.DefaultOperatorAction</class>
             <parent>globalb</parent>
-            <id>MainAerosolOp</id>
+            <id>AerosolOp</id>
             <helpId>aerosol</helpId>
-            <operatorName>MasterOp</operatorName>
+            <operatorName>AerosolOp2</operatorName>
             <text>AerosolOp...</text>
             <dialogTitle>AerosolOp</dialogTitle>
             <targetProductNameSuffix>_AerosolOp</targetProductNameSuffix>
+        </action>
+        <action>
+            <class>org.esa.beam.visat.actions.DefaultOperatorAction</class>
+            <parent>globalb</parent>
+            <id>MainAerosolOp</id>
+            <helpId>master</helpId>
+            <operatorName>MasterOp</operatorName>
+            <text>AerosolMasterOp...</text>
+            <dialogTitle>AerosolMasterOp</dialogTitle>
+            <targetProductNameSuffix>_AerosolOp</targetProductNameSuffix>
+        </action>
+        <action>
+            <class>org.esa.beam.visat.actions.DefaultOperatorAction</class>
+            <parent>globalb</parent>
+            <id>DownSclOp</id>
+            <helpId>downscl</helpId>
+            <operatorName>DownSclOp</operatorName>
+            <text>DownSclOp...</text>
+            <dialogTitle>DownSclOp</dialogTitle>
+            <targetProductNameSuffix>_dwn</targetProductNameSuffix>
+        </action>
+        <action>
+            <class>org.esa.beam.visat.actions.DefaultOperatorAction</class>
+            <parent>globalb</parent>
+            <id>UpSclOp</id>
+            <helpId>upscl</helpId>
+            <operatorName>UpSclOp</operatorName>
+            <text>UpSclOp...</text>
+            <dialogTitle>UpSclOp</dialogTitle>
+            <targetProductNameSuffix>_up</targetProductNameSuffix>
+        </action>
+        <action>
+            <class>org.esa.beam.visat.actions.DefaultOperatorAction</class>
+            <parent>globalb</parent>
+            <id>MerisPrepOp</id>
+            <helpId>merisprep</helpId>
+            <operatorName>MerisPrepOp</operatorName>
+            <text>MerisPrepOp...</text>
+            <dialogTitle>MerisPrepOp</dialogTitle>
+            <targetProductNameSuffix>_reflec</targetProductNameSuffix>
+        </action>
+        <action>
+            <class>org.esa.beam.visat.actions.DefaultOperatorAction</class>
+            <parent>globalb</parent>
+            <id>GapFillingOp</id>
+            <helpId>gapfilling</helpId>
+            <operatorName>GapFillingOp</operatorName>
+            <text>GapFillingOp...</text>
+            <dialogTitle>GapFillingOp</dialogTitle>
+            <targetProductNameSuffix>_fill</targetProductNameSuffix>
         </action>
 
     </extension>

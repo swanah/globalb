@@ -16,6 +16,7 @@ package org.esa.beam.globalbedo.sdr.operators;
 
 import com.bc.ceres.core.ProgressMonitor;
 import java.io.IOException;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.esa.beam.framework.datamodel.Band;
@@ -34,21 +35,22 @@ import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import javax.media.jai.BorderExtender;
-import org.esa.beam.akh.createelevationband.CreateElevationBandOp;
 import org.esa.beam.globalbedo.sdr.lutUtils.MomoLut;
 import org.esa.beam.framework.datamodel.ProductData;
 import org.esa.beam.framework.datamodel.RasterDataNode;
+import org.esa.beam.framework.datamodel.TiePointGrid;
 import org.esa.beam.framework.datamodel.VirtualBand;
-import org.esa.beam.framework.gpf.GPF;
 import org.esa.beam.framework.gpf.annotations.Parameter;
+import org.esa.beam.globalbedo.sdr.lutUtils.Aardvarc4DLut;
 import org.esa.beam.globalbedo.sdr.lutUtils.MomoSynLut;
 import org.esa.beam.gpf.operators.standard.BandMathsOp;
+import org.esa.beam.util.Guardian;
 import org.esa.beam.util.math.LookupTable;
+import org.esa.beam.util.math.RsMathUtils;
 
 // TODO - Adapt javadoc
 
@@ -68,6 +70,13 @@ public class AerosolOp extends Operator {
     private Product targetProduct;
     @Parameter(defaultValue="false")
     private boolean retrieveAOT = false;
+    @Parameter(defaultValue="false")
+    private boolean saveToaBands = false;
+    @Parameter(defaultValue="false")
+    private boolean saveSdrBands = false;
+    @Parameter(defaultValue="false")
+    private boolean saveModelBands = false;
+
     //@Parameter
     private String SurfaceSpecName = "surface_reflectance_spec.asc";
 
@@ -84,22 +93,24 @@ public class AerosolOp extends Operator {
     private int srcRasterWidth;
     private int srcRasterHeight;
     private ArrayList<Band> specBandList;
-    private ArrayList<RasterDataNode> geometryBandList;
+    private ArrayList<TiePointGrid> geometryBandList;
     private float[] specWvl;
     private int nSpecBands;
     private float[] soilSurfSpec;
     private float[] vegSurfSpec;
-    private float[] specWeights;
-    private LookupTable lut;
+    private double[] specWeights;
     private MomoLut momo;
-    //private PointRetrieval retrieval;
     private Band validBand;
     private VirtualBand surfPresBand;
     private LookupTable[] synLut;
     private float[] lutAlb;
     private boolean useSynLut = false;
+    private Aardvarc4DLut aardvarcLut;
+    private boolean useAardvarcLut = false;
     private BorderExtender borderExt;
+    private String validExpression;
     private Rectangle pixelWindow;
+
 
     /**
      * Default constructor. The graph processing framework
@@ -127,11 +138,11 @@ public class AerosolOp extends Operator {
         srcRasterHeight = sourceProduct.getSceneRasterHeight();
         srcRasterWidth  = sourceProduct.getSceneRasterWidth();
 
-        instrument = getInstrument();
+        instrument = InstrumentConsts.getInstance().getInstrument(sourceProduct);
 
         specBandList = getSpecBandList(instrument);
-        nSpecBands = specBandList.size();
         specWvl = getSpectralWvl(specBandList);
+        nSpecBands = specBandList.size();
         specBandNames = InstrumentConsts.getInstance().getSpecBandNames(instrument);
 
         geometryBandList = getGeomBandList(instrument);
@@ -139,9 +150,13 @@ public class AerosolOp extends Operator {
 
         surfPresName = InstrumentConsts.getInstance().getSurfPressureName(instrument);
         ozoneName    = InstrumentConsts.getInstance().getOzoneName(instrument);
-        if (instrument.equals("VGT") && !sourceProduct.containsBand(surfPresName)) {
-            sourceProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(CreateElevationBandOp.class), GPF.NO_PARAMS, sourceProduct);
-            String presExpr = "(1013.25 * exp(-elev/8400))";
+        /*
+        if (!sourceProduct.containsBand(surfPresName)){
+            String presExpr = null;
+            if (!(sourceProduct.containsBand("elevation") || sourceProduct.containsTiePointGrid("elevation"))){
+                sourceProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(CreateElevationBandOp.class), GPF.NO_PARAMS, sourceProduct);
+            }
+            presExpr = "(1013.25 * exp(-elevation/8400))";
             surfPresBand = new VirtualBand(surfPresName, ProductData.TYPE_FLOAT32, srcRasterWidth, srcRasterHeight, presExpr);
             surfPresBand.setDescription("estimated sea level pressure (p0=1013.25hPa, hScale=8.4km)");
             surfPresBand.setNoDataValue(0);
@@ -149,16 +164,26 @@ public class AerosolOp extends Operator {
             surfPresBand.setUnit("hPa");
             sourceProduct.addBand(surfPresBand);
         }
+         */
+        if (!sourceProduct.containsBand(ozoneName)){
+            String ozoneExpr = "0.350";
+            VirtualBand ozoneBand = new VirtualBand(ozoneName, ProductData.TYPE_FLOAT32, srcRasterWidth, srcRasterHeight, ozoneExpr);
+            ozoneBand.setDescription("constant ozone band 350DU");
+            ozoneBand.setNoDataValue(0);
+            ozoneBand.setNoDataValueUsed(true);
+            ozoneBand.setUnit("atm.cm");
+            sourceProduct.addBand(ozoneBand);
+        }
 
-        String validExpression = InstrumentConsts.getInstance().getValidExpression(instrument);
+        validExpression = InstrumentConsts.getInstance().getValidExpression(instrument);
         final BandMathsOp validBandOp = BandMathsOp.createBooleanExpressionBand(validExpression, sourceProduct);
         validBand = validBandOp.getTargetProduct().getBandAt(0);
 
         readSurfaceSpectra(SurfaceSpecName);
-        specWeights = InstrumentConsts.getInstance().getFitWeights(instrument);
+        specWeights = InstrumentConsts.getInstance().getSpectralFitWeights(instrument);
         if (useSynLut){
-            lut = null;
             momo = null;
+            aardvarcLut = null;
             MomoSynLut momoSynLut = new MomoSynLut("e:/model_data/momo/bin", 8, "MERIS", specWvl);
             lutAlb = momoSynLut.getAlbDim();
             synLut = momoSynLut.getLut();
@@ -167,14 +192,18 @@ public class AerosolOp extends Operator {
             String lutName = InstrumentConsts.getInstance().getLutName(instrument);
             int nLutBands = InstrumentConsts.getInstance().getnLutBands(instrument);
             momo = new MomoLut(lutName, nLutBands);
-            lut = momo.getLookupTable();
             lutAlb = null;
             synLut = null;
+            if (useAardvarcLut){
+                Guardian.assertEquals("instrument", instrument, "AATSR");
+                lutName = "e:/projects/Synergy/wgrey/AATSR/src/aardvarc/aardvarc_v1/LUT6S/LUT6s_1_4D";
+                aardvarcLut = new Aardvarc4DLut(lutName);
+            }
         }
 
         createTargetProduct();
         borderExt = BorderExtender.createInstance(BorderExtender.BORDER_COPY);
-        pixelWindow = new Rectangle(0, 0, 2, 2);
+        pixelWindow = new Rectangle(0, 0, 1,1);
     }
 
     /**
@@ -211,14 +240,25 @@ public class AerosolOp extends Operator {
 
         Tile aotTile = targetTiles.get(targetProduct.getBand("aot"));
         Tile errTile = targetTiles.get(targetProduct.getBand("aot_err"));
-        Tile scaleVegTile = targetTiles.get(targetProduct.getBand("scaleVeg"));
-        Tile scaleSoilTile = targetTiles.get(targetProduct.getBand("scaleSoil"));
-        Tile addConstTile = targetTiles.get(targetProduct.getBand("addConst"));
-        Tile[] sdrTiles = new Tile[nSpecBands];
-        Tile[] modelTiles = new Tile[nSpecBands];
-        for (int i=0; i<nSpecBands; i++) {
-            sdrTiles[i] = targetTiles.get(targetProduct.getBand(specBandNames[i]+"_sdr"));
-            modelTiles[i] = targetTiles.get(targetProduct.getBand(specBandNames[i]+"_model"));
+        Tile scaleVegTile = null;
+        Tile scaleSoilTile = null;
+        Tile addConstTile = null;
+        Tile[] sdrTiles = null;
+        Tile[] modelTiles = null;
+        if (saveModelBands) {
+            scaleVegTile = targetTiles.get(targetProduct.getBand("scaleVeg"));
+            scaleSoilTile = targetTiles.get(targetProduct.getBand("scaleSoil"));
+            addConstTile = targetTiles.get(targetProduct.getBand("addConst"));
+            modelTiles = new Tile[nSpecBands];
+            for (int i=0; i<nSpecBands; i++) {
+                modelTiles[i] = targetTiles.get(targetProduct.getBand(specBandNames[i]+"_model"));
+            }
+        }
+        if (saveSdrBands) {
+            sdrTiles = new Tile[nSpecBands];
+            for (int i=0; i<nSpecBands; i++) {
+                sdrTiles[i] = targetTiles.get(targetProduct.getBand(specBandNames[i]+"_sdr"));
+            }
         }
 
         int x0 = (int) targetRectangle.getX();
@@ -228,69 +268,123 @@ public class AerosolOp extends Operator {
         for (int iY=y0; iY <= height; iY++) {
             //System.out.printf(outS+" %f %% \r", (100.0*iY/height));
             for (int iX=x0; iX <= width; iX++) {
+                //System.err.println(iX+" / "+iY);
                 float aot = (float) aotTile.getRasterDataNode().getGeophysicalNoDataValue();
                 float err = (float) errTile.getRasterDataNode().getGeophysicalNoDataValue();
-                float scaleVeg = (float) scaleVegTile.getRasterDataNode().getGeophysicalNoDataValue();
-                float scaleSoil = (float) scaleSoilTile.getRasterDataNode().getGeophysicalNoDataValue();
-                float addConst = (float) addConstTile.getRasterDataNode().getGeophysicalNoDataValue();
-                float[] sdr = new float[nSpecBands];
-                float[] model = new float[nSpecBands];
-                for (int i=0; i<nSpecBands; i++) {
-                    sdr[i] = (float) sdrTiles[i].getRasterDataNode().getGeophysicalNoDataValue();
-                    model[i] = (float) modelTiles[i].getRasterDataNode().getGeophysicalNoDataValue();
+                float scaleVeg = 0;
+                float scaleSoil = 0;
+                float addConst = 0;
+                float[] model = null;
+                if (saveModelBands){
+                    scaleVeg = (float) scaleVegTile.getRasterDataNode().getGeophysicalNoDataValue();
+                    scaleSoil = (float) scaleSoilTile.getRasterDataNode().getGeophysicalNoDataValue();
+                    addConst = (float) addConstTile.getRasterDataNode().getGeophysicalNoDataValue();
+                    model = new float[nSpecBands];
+                    for (int i=0; i<nSpecBands; i++) {
+                        model[i] = (float) modelTiles[i].getRasterDataNode().getGeophysicalNoDataValue();
+                    }
+                }
+                float[] sdr = null;
+                if (saveSdrBands){
+                    sdr = new float[nSpecBands];
+                    for (int i=0; i<nSpecBands; i++) {
+                        sdr[i] = (float) sdrTiles[i].getRasterDataNode().getGeophysicalNoDataValue();
+                    }
                 }
 
                 if (validTile.getSampleBoolean(iX, iY)) {
-                    //float[] saa = (float) geomTiles.get(geomBandNames[0]).getSampleDouble(iX, iY);
-                    //float[] saa = (float) geomTiles.get(geomBandNames[1]).getSampleDouble(iX, iY);
-                    //float[] vza = (float) geomTiles.get(geomBandNames[2]).getSampleDouble(iX, iY);
-                    //float[] vaa = (float) geomTiles.get(geomBandNames[3]).getSampleDouble(iX, iY);
-                    //float surfPressure = 1013.25f;
-                    //float[] toaReflec = getSpectrum(specTiles, iX, iY);
-                    //PixelGeometry geom = new PixelGeometry(sza, saa, vza, vaa);
-                    //InputPixelData inPixData = new InputPixelData(geom, surfPressure, specWvl, toaReflec);
-                    SourcePixelField inPixData = readPixelData(inputTiles, iX, iY, pixelWindow);
-                    emodSpecTau brentFitFct;
+                    SourcePixelField srcPixelF = readPixelData(inputTiles, iX, iY, pixelWindow);
+                    BrentFitFunction brentFitFunction = null;
+                    emodSpecTau specBrentFct = null;
+                    emodAngTau  angBrentFct = null;
+                    emodSynTau  synBrentFct = null;
                     if (useSynLut){
-                        brentFitFct = new emodSpecTau(inPixData, synLut, lutAlb, soilSurfSpec, vegSurfSpec, specWeights);
+                        specBrentFct = new emodSpecTau(srcPixelF, synLut, lutAlb, soilSurfSpec, vegSurfSpec, specWeights);
+                        angBrentFct  = new emodAngTau(srcPixelF, synLut, lutAlb, specWeights);
+                        synBrentFct  = new emodSynTau(srcPixelF, synLut, lutAlb, soilSurfSpec, vegSurfSpec, specWeights);
+
+                    }
+                    else if (useAardvarcLut){
+                        angBrentFct  = new emodAngTau(srcPixelF, aardvarcLut, specWeights);
+                        //brentFitFunction = new BrentFitFunction(BrentFitFunction.ANGULAR_MODEL, srcPixelF, aardvarcLut, specWeights);
                     }
                     else {
-                        brentFitFct = new emodSpecTau(inPixData, momo, soilSurfSpec, vegSurfSpec, specWeights);
+                        specBrentFct = new emodSpecTau(srcPixelF, momo, soilSurfSpec, vegSurfSpec, specWeights);
+                        angBrentFct  = new emodAngTau(srcPixelF, momo, specWeights);
+                        //synBrentFct  = new emodSynTau(srcPixelF, momo, soilSurfSpec, vegSurfSpec, specWeights);
+                        //brentFitFunction = new BrentFitFunction(BrentFitFunction.ANGULAR_MODEL, srcPixelF, momo, specWeights);
                     }
 
-                    RetrievalResults retrievalResult;
-                    if (retrieveAOT) retrievalResult = new PointRetrieval().runRetrieval(brentFitFct);
+                    RetrievalResults retrievalResult = null;
+                    if (retrieveAOT) {
+                        if (instrument.equals("AATSR")){
+                            /*
+                            if (iX==0 && iY==0){
+                                System.out.printf("%f  %f  \n%f  %f\n", 90.0-inputTiles.get("sun_elev_nadir").getSampleFloat(0, 0),
+                                        90.0-inputTiles.get("view_elev_nadir").getSampleFloat(0, 0),
+                                        inputTiles.get("sun_azimuth_nadir").getSampleFloat(0, 0),
+                                        inputTiles.get("view_azimuth_nadir").getSampleFloat(0, 0));
+                                System.out.printf("%f  %f  %f\n", srcPixelF.inPixArr[srcPixelF.pixelIndex].geom.sza,
+                                        srcPixelF.inPixArr[srcPixelF.pixelIndex].geom.vza,
+                                        srcPixelF.inPixArr[srcPixelF.pixelIndex].geom.razi);
+                                System.out.printf("fmin: %f\n", angBrentFct.f(0.2));
+                                //float[][] sdrDiff = aardvarcLut.getSdrDiff(inPixData.inPixArr[inPixData.pixelIndex], 0.2f);
+                                //for(int i=0; i<4; i++) System.out.printf("%f  %f  %f\n",specWvl[i],inPixData.inPixArr[inPixData.pixelIndex].toaReflec[i],sdrDiff[0][i]);
+                            }
+                            */
+                            retrievalResult = new PointRetrieval(angBrentFct).runRetrieval(instrument);
+                            //retrievalResult = new PointRetrieval(synBrentFct).runRetrieval(instrument);
+                        }
+                        else {
+                            retrievalResult = new PointRetrieval(specBrentFct).runRetrieval(instrument);
+                        }
+                    }
+                    /*
                     else if (instrument.equals("VGT")) {
-                        retrievalResult = new PointRetrieval().retrieveSDR(brentFitFct, srcAotTile.getSampleFloat(iX,iY));
+                        retrievalResult = new PointRetrieval(specBrentFct).retrieveSDR(srcAotTile.getSampleFloat(iX,iY));
                     }
+                     *
+                     */
                     else {
-                        retrievalResult = new PointRetrieval().retrieveSDR(brentFitFct, 0.1);
+                        if (instrument.equals("AATSR")){
+                            retrievalResult = new PointRetrieval(angBrentFct).retrieveSDR(0.1);
+                        }
+                        else {
+                            retrievalResult = new PointRetrieval(specBrentFct).retrieveSDR(0.1);
+                        }
                     }
-
-                    aot = retrievalResult.optAOT;
-                    err = retrievalResult.optErr;
-                    scaleVeg = (float) retrievalResult.pAtMin[0];
-                    scaleSoil = (float) retrievalResult.pAtMin[1];
-                    addConst = (float) retrievalResult.pAtMin[2];
-                    sdr = retrievalResult.sdr;
-                    model = retrievalResult.modelSpec;
+                    if (!retrievalResult.retrievalFailed){
+                        aot = retrievalResult.optAOT;
+                        err = retrievalResult.retrievalErr;
+/*
+                        if(instrument.equals("VGT")){
+                            scaleVeg = (float) retrievalResult.pAtMin[0];
+                            scaleSoil = (float) retrievalResult.pAtMin[1];
+                            addConst = (float) retrievalResult.pAtMin[2];
+                            sdr = retrievalResult.sdr;
+                            model = retrievalResult.modelSpec;
+                        }
+*/
+                    }
                 }
                 aotTile.setSample(iX, iY, aot);
                 errTile.setSample(iX, iY, err);
-                scaleVegTile.setSample(iX, iY, scaleVeg);
-                scaleSoilTile.setSample(iX, iY, scaleSoil);
-                addConstTile.setSample(iX, iY, addConst);
+                if (saveModelBands) {
+                    scaleVegTile.setSample(iX, iY, scaleVeg);
+                    scaleSoilTile.setSample(iX, iY, scaleSoil);
+                    addConstTile.setSample(iX, iY, addConst);
+                }
                 for (int i=0; i<nSpecBands; i++) {
-                    sdrTiles[i].setSample(iX, iY, sdr[i]);
-                    modelTiles[i].setSample(iX, iY, model[i]);
+                    if (saveSdrBands)   sdrTiles[i].setSample(iX, iY, sdr[i]);
+                    if (saveModelBands) modelTiles[i].setSample(iX, iY, model[i]);
                 }
                 if(pm.isCanceled()) return;
             }
             pm.worked(1);
-
+            System.err.println(iY);
         }
         pm.done();
-
+        System.err.println("tiledone");
     }
 
     private void createTargetProduct() {
@@ -301,31 +395,39 @@ public class AerosolOp extends Operator {
         ProductUtils.copyTiePointGrids(sourceProduct, targetProduct);
         ProductUtils.copyGeoCoding(sourceProduct, targetProduct);
         ProductUtils.copyFlagBands(sourceProduct, targetProduct);
-
         //AerosolHelpers.addAerosolFlagBand(targetProduct, downscaledRasterWidth, downscaledRasterHeight);
 
         createTargetProductBands();
 
-        targetProduct.setPreferredTileSize(128,128);
+        ProductUtils.copyMasks(sourceProduct, targetProduct);
+        ProductUtils.copyRoiMasks(sourceProduct, targetProduct);
+
         setTargetProduct(targetProduct);
 
     }
 
     private void createTargetProductBands() {
 
+        List<String> specNameList = Arrays.asList(specBandNames);
         for (Band srcBand : sourceProduct.getBands()) {
-            if (!srcBand.isFlagBand()) {
-                ProductUtils.copyBand(srcBand.getName(), sourceProduct, targetProduct);
+            if (srcBand.isFlagBand()) {
+                Band tarBand = targetProduct.getBand(srcBand.getName());
+                tarBand.setSourceImage(srcBand.getSourceImage());
             }
-            Band tarBand = targetProduct.getBand(srcBand.getName());
-            tarBand.setSourceImage(srcBand.getSourceImage());
+            //else if (saveToaBands || !specNameList.contains(srcBand.getName())) {
+            else if (saveToaBands && specNameList.contains(srcBand.getName())) {
+                ProductUtils.copyBand(srcBand.getName(), sourceProduct, targetProduct);
+                Band tarBand = targetProduct.getBand(srcBand.getName());
+                tarBand.setSourceImage(srcBand.getSourceImage());
+            }
         }
 
         Band targetBand = new Band("aot", ProductData.TYPE_FLOAT32, srcRasterWidth, srcRasterHeight);
         targetBand.setDescription("best fitting aot Band");
         targetBand.setNoDataValue(-1);
         targetBand.setNoDataValueUsed(true);
-        targetBand.setValidPixelExpression(targetBand.getName() + ">= 0 AND " + targetBand.getName() + "<= 2");
+        //targetBand.setValidPixelExpression(targetBand.getName() + ">= 0 AND " + targetBand.getName() + "<= 2");
+        targetBand.setValidPixelExpression(validExpression);
         targetBand.setUnit("dl");
         targetProduct.addBand(targetBand);
 
@@ -333,57 +435,69 @@ public class AerosolOp extends Operator {
         targetBand.setDescription("");
         targetBand.setNoDataValue(-1);
         targetBand.setNoDataValueUsed(true);
+        targetBand.setValidPixelExpression(validExpression);
         targetBand.setUnit("dl");
         targetProduct.addBand(targetBand);
 
-        targetBand = new Band("scaleVeg", ProductData.TYPE_FLOAT32, srcRasterWidth, srcRasterHeight);
-        targetBand.setDescription("");
-        targetBand.setNoDataValue(-1);
-        targetBand.setNoDataValueUsed(true);
-        targetBand.setUnit("dl");
-        targetProduct.addBand(targetBand);
-
-        targetBand = new Band("scaleSoil", ProductData.TYPE_FLOAT32, srcRasterWidth, srcRasterHeight);
-        targetBand.setDescription("");
-        targetBand.setNoDataValue(-1);
-        targetBand.setNoDataValueUsed(true);
-        targetBand.setUnit("dl");
-        targetProduct.addBand(targetBand);
-
-        targetBand = new Band("addConst", ProductData.TYPE_FLOAT32, srcRasterWidth, srcRasterHeight);
-        targetBand.setDescription("");
-        targetBand.setNoDataValue(-1);
-        targetBand.setNoDataValueUsed(true);
-        targetBand.setUnit("dl");
-        targetProduct.addBand(targetBand);
-
-        for (int i=0; i<nSpecBands; i++) {
-            targetBand = new Band(specBandNames[i]+"_sdr", ProductData.TYPE_FLOAT32, srcRasterWidth, srcRasterHeight);
+        if (saveModelBands) {
+            targetBand = new Band("scaleVeg", ProductData.TYPE_FLOAT32, srcRasterWidth, srcRasterHeight);
             targetBand.setDescription("");
             targetBand.setNoDataValue(-1);
             targetBand.setNoDataValueUsed(true);
+            targetBand.setValidPixelExpression(validExpression);
             targetBand.setUnit("dl");
-            targetBand.setSpectralBandwidth(sourceProduct.getBand(specBandNames[i]).getSpectralBandwidth());
-            targetBand.setSpectralWavelength(sourceProduct.getBand(specBandNames[i]).getSpectralWavelength());
             targetProduct.addBand(targetBand);
+
+            targetBand = new Band("scaleSoil", ProductData.TYPE_FLOAT32, srcRasterWidth, srcRasterHeight);
+            targetBand.setDescription("");
+            targetBand.setNoDataValue(-1);
+            targetBand.setNoDataValueUsed(true);
+            targetBand.setValidPixelExpression(validExpression);
+            targetBand.setUnit("dl");
+            targetProduct.addBand(targetBand);
+
+            targetBand = new Band("addConst", ProductData.TYPE_FLOAT32, srcRasterWidth, srcRasterHeight);
+            targetBand.setDescription("");
+            targetBand.setNoDataValue(-1);
+            targetBand.setNoDataValueUsed(true);
+            targetBand.setValidPixelExpression(validExpression);
+            targetBand.setUnit("dl");
+            targetProduct.addBand(targetBand);
+
+            for (int i = 0; i < nSpecBands; i++) {
+                targetBand = new Band(specBandNames[i] + "_model", ProductData.TYPE_FLOAT32, srcRasterWidth, srcRasterHeight);
+                targetBand.setDescription("");
+                targetBand.setNoDataValue(-1);
+                targetBand.setNoDataValueUsed(true);
+                targetBand.setValidPixelExpression(validExpression);
+                targetBand.setUnit("dl");
+                targetBand.setSpectralBandwidth(sourceProduct.getBand(specBandNames[i]).getSpectralBandwidth());
+                targetBand.setSpectralWavelength(sourceProduct.getBand(specBandNames[i]).getSpectralWavelength());
+                targetProduct.addBand(targetBand);
+            }
         }
-        for (int i=0; i<nSpecBands; i++) {
-            targetBand = new Band(specBandNames[i]+"_model", ProductData.TYPE_FLOAT32, srcRasterWidth, srcRasterHeight);
-            targetBand.setDescription("");
-            targetBand.setNoDataValue(-1);
-            targetBand.setNoDataValueUsed(true);
-            targetBand.setUnit("dl");
-            targetBand.setSpectralBandwidth(sourceProduct.getBand(specBandNames[i]).getSpectralBandwidth());
-            targetBand.setSpectralWavelength(sourceProduct.getBand(specBandNames[i]).getSpectralWavelength());
-            targetProduct.addBand(targetBand);
+        
+        if (saveSdrBands) {
+            for (int i = 0; i < nSpecBands; i++) {
+                targetBand = new Band(specBandNames[i] + "_sdr", ProductData.TYPE_FLOAT32, srcRasterWidth, srcRasterHeight);
+                targetBand.setDescription("");
+                targetBand.setNoDataValue(-1);
+                targetBand.setNoDataValueUsed(true);
+                targetBand.setValidPixelExpression("aot_err<0.005");
+                targetBand.setValidPixelExpression(validExpression);
+                targetBand.setUnit("dl");
+                targetBand.setSpectralBandwidth(sourceProduct.getBand(specBandNames[i]).getSpectralBandwidth());
+                targetBand.setSpectralWavelength(sourceProduct.getBand(specBandNames[i]).getSpectralWavelength());
+                targetProduct.addBand(targetBand);
+            }
         }
     }
 
-    private ArrayList<RasterDataNode> getGeomBandList(String instrument) {
+    private ArrayList<TiePointGrid> getGeomBandList(String instrument) {
         String[] bandNames = InstrumentConsts.getInstance().getGeomBandNames(instrument);
-        ArrayList<RasterDataNode> list = new ArrayList<RasterDataNode>();
+        ArrayList<TiePointGrid> list = new ArrayList<TiePointGrid>();
         for (int i=0; i<bandNames.length; i++) {
-            list.add(sourceProduct.getRasterDataNode(bandNames[i]));
+            list.add(sourceProduct.getTiePointGrid(bandNames[i]));
         }
         return list;
     }
@@ -394,25 +508,13 @@ public class AerosolOp extends Operator {
         for (int i=0; i<bandNames.length; i++) {
             list.add(sourceProduct.getBand(bandNames[i]));
         }
+/*
         if (list.get(0).getSpectralWavelength() > 0) {
             Comparator<Band> byWavelength = new WavelengthComparator();
             Collections.sort(list, byWavelength);
         }
+*/
         return list;
-    }
-
-    private String getInstrument() {
-        String inst = null;
-        String[] supportedInstruments = InstrumentConsts.getInstance().getSupportedInstruments();
-        for (String suppInstr : supportedInstruments) {
-            String[] specBands = InstrumentConsts.getInstance().getSpecBandNames(suppInstr);
-            if (specBands.length > 0 && sourceProduct.containsBand(specBands[0])) {
-                inst = suppInstr;
-                break;
-            }
-        }
-        if (inst.equals(null)) throw new OperatorException("Product not supported.");
-        return inst;
     }
 
     private float getRelativeAzi(float saa, float vaa) {
@@ -422,8 +524,9 @@ public class AerosolOp extends Operator {
     }
 
     private float[] getSpectralWvl(ArrayList<Band> specBandList) {
-        float[] wvl = new float[specBandList.size()];
-        for (int i=0; i<specBandList.size(); i++) {
+        int nBands = (instrument.equals("AATSR")) ? 4 : specBandList.size();
+        float[] wvl = new float[nBands];
+        for (int i=0; i<nBands; i++) {
             wvl[i] = specBandList.get(i).getSpectralWavelength();
         }
         return wvl;
@@ -514,6 +617,15 @@ public class AerosolOp extends Operator {
                 float vza = inputTiles.get(geomBandNames[2]).getSampleFloat(tileX, tileY);
                 float vaa = inputTiles.get(geomBandNames[3]).getSampleFloat(tileX, tileY);
                 PixelGeometry geom = new PixelGeometry(sza, saa, vza, vaa);
+                PixelGeometry geomFward = null;
+                if (instrument.equals("AATSR")){
+                    geom = new PixelGeometry(90f-sza, saa, 90f-vza, vaa);
+                    sza = inputTiles.get(geomBandNames[4]).getSampleFloat(tileX, tileY);
+                    saa = inputTiles.get(geomBandNames[5]).getSampleFloat(tileX, tileY);
+                    vza = inputTiles.get(geomBandNames[6]).getSampleFloat(tileX, tileY);
+                    vaa = inputTiles.get(geomBandNames[7]).getSampleFloat(tileX, tileY);
+                    geomFward = new PixelGeometry(90f-sza, saa, 90f-vza, vaa);
+                }
                 valid[i+j*window.width] = (sza != (float)noData);
 
                 noData = inputTiles.get(surfPresName).getRasterDataNode().getGeophysicalNoDataValue();
@@ -522,19 +634,39 @@ public class AerosolOp extends Operator {
 
                 noData = inputTiles.get(surfPresName).getRasterDataNode().getGeophysicalNoDataValue();
                 float o3col = inputTiles.get(ozoneName).getSampleFloat(tileX, tileY) * 1000; // O3 in [DU]
+                float wvCol = 0.0f;
                 valid[i+j*window.width] = valid[i+j*window.width] && (o3col != noData);
 
                 float[] spec = new float[specWvl.length];
+                float[] specFward = null;
                 for (int k=0; k<specWvl.length; k++) {
                     Tile t = inputTiles.get(specBandNames[k]);
                     spec[k] = t.getSampleFloat(tileX, tileY);
                     valid[i+j*window.width] = valid[i+j*window.width] && (spec[k] != t.getRasterDataNode().getGeophysicalNoDataValue());
                 }
-                inPixel[i+j*window.width] = new InputPixelData(geom, pres, o3col, specWvl, spec);
+                if (instrument.equals("AATSR")){
+                    specFward = new float[specWvl.length];
+                    for (int k=0; k<specWvl.length; k++) {
+                        spec[k] = RsMathUtils.radianceToReflectance(spec[k], geom.sza, (float) Math.PI) * 0.01f;
+
+                        Tile t = inputTiles.get(specBandNames[4+k]);
+                        specFward[k] = t.getSampleFloat(tileX, tileY);
+                        specFward[k] = RsMathUtils.radianceToReflectance(specFward[k], geomFward.sza, (float) Math.PI) * 0.01f;
+                        valid[i+j*window.width] = valid[i+j*window.width] && (specFward[k] != t.getRasterDataNode().getGeophysicalNoDataValue());
+                    }
+                }
+                inPixel[i+j*window.width] = new InputPixelData(geom, geomFward, pres, o3col, wvCol, specWvl, spec, specFward);
             }
         }
         
         return new SourcePixelField(inPixel, valid, (-window.x)+(-window.y)*window.width);
+    }
+
+    private Rectangle getPixelWindow(String pixelWindowStr) {
+        String[] split = pixelWindowStr.split(",");
+        Guardian.assertEquals("Number of Source Pixel Window parameters", split.length, 4);
+        return new Rectangle(Integer.parseInt(split[0]), Integer.parseInt(split[1]),
+                             Integer.parseInt(split[2]), Integer.parseInt(split[3]));
     }
 
     

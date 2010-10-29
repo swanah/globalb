@@ -16,7 +16,7 @@ public class RetrievalResults {
     final float retrievalErr;
     double[] pAtMin;
     float[] modelSpec;
-    float[] sdr;
+    double[] sdr;
 
     public RetrievalResults() {
         this(false, -1.0f, -1.0f, -1.0f);

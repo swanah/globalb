@@ -13,10 +13,10 @@ import org.esa.beam.globalbedo.sdr.util.math.Function;
  */
 public interface UnivRetrievalFunction extends Function {
 
-    float[] getModelReflec();
+    float[] getModelReflec(float aot);
 
     double[] getpAtMin();
 
-    float[] getSurfReflec(float aot);
+    double[] getSurfReflec(float aot);
 
 }

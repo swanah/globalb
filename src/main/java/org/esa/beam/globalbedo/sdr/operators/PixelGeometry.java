@@ -20,6 +20,12 @@ public class PixelGeometry {
         this.razi = getRelativeAzi(saa, vaa);
     }
 
+    public PixelGeometry(double sza, double saa, double vza, double vaa) {
+        this.sza = (float) sza;
+        this.vza = (float) vza;
+        this.razi = getRelativeAzi((float)saa, (float)vaa);
+    }
+
     private float getRelativeAzi(float saa, float vaa) {
         float relAzi = Math.abs(saa - vaa);
         relAzi = (relAzi > 180.0f) ? 180 - (360 - relAzi) : 180 - relAzi;
