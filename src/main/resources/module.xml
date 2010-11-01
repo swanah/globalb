@@ -79,7 +79,7 @@
             <parent>globalb</parent>
             <id>MainAerosolOp</id>
             <helpId>master</helpId>
-            <operatorName>MasterOp</operatorName>
+            <operatorName>GaMasterOp</operatorName>
             <text>AerosolMasterOp...</text>
             <dialogTitle>AerosolMasterOp</dialogTitle>
             <targetProductNameSuffix>_AerosolOp</targetProductNameSuffix>

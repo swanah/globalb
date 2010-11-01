@@ -22,12 +22,12 @@ import org.esa.beam.util.Guardian;
 /**
  * Main Operator producing AOT for GlobAlbedo
  */
-@OperatorMetadata(alias = "MasterOp",
+@OperatorMetadata(alias = "GaMasterOp",
                   description = "",
                   authors = "Andreas Heckel",
                   version = "1.0",
                   copyright = "(C) 2010 by University Swansea (a.heckel@swansea.ac.uk)")
-public class MasterOp  extends Operator {
+public class GaMasterOp  extends Operator {
 
     @SourceProduct
     private Product sourceProduct;
@@ -108,7 +108,7 @@ public class MasterOp  extends Operator {
      */
     public static class Spi extends OperatorSpi {
         public Spi() {
-            super(MasterOp.class);
+            super(GaMasterOp.class);
         }
     }
 }
