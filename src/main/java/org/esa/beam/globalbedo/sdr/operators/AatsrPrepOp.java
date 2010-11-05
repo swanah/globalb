@@ -9,6 +9,7 @@ import java.util.HashMap;
 import java.util.Map;
 import org.esa.beam.aatsrrecalibration.operators.RecalibrateAATSRReflectancesOp;
 import org.esa.beam.framework.datamodel.Band;
+import org.esa.beam.framework.datamodel.Mask;
 import org.esa.beam.framework.datamodel.Product;
 import org.esa.beam.framework.datamodel.ProductData;
 import org.esa.beam.framework.datamodel.VirtualBand;
@@ -28,7 +29,7 @@ import org.esa.beam.util.ProductUtils;
  * Create Aatsr input product for Globalbedo aerosol retrieval and BBDR processor
  * @author akheckel
  */
-@OperatorMetadata(alias = "AatsrPrepOp",
+@OperatorMetadata(alias = "ga.AatsrPrepOp",
                   description = "Create Aatsr product for input to Globalbedo aerosol retrieval and BBDR processor",
                   authors = "Andreas Heckel",
                   version = "1.0",
@@ -65,6 +66,11 @@ public class AatsrPrepOp extends Operator {
         ProductUtils.copyTiePointGrids(sourceProduct, targetProduct);
         ProductUtils.copyGeoCoding(sourceProduct, targetProduct);
         ProductUtils.copyFlagBands(sourceProduct, targetProduct);
+        Mask mask;
+        for (int i=0; i<sourceProduct.getMaskGroup().getNodeCount(); i++){
+            mask = sourceProduct.getMaskGroup().get(i);
+            targetProduct.getMaskGroup().add(mask);
+        }
 
         // create pixel calssification if missing in sourceProduct
         // and add flag band to targetProduct
@@ -77,6 +83,10 @@ public class AatsrPrepOp extends Operator {
             pixelClassParam.put("gaComputeFlagsOnly", true);
             idepixProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(ComputeChainOp.class), pixelClassParam, sourceProduct);
             ProductUtils.copyFlagBands(idepixProduct, targetProduct);
+            for (int i=0; i<sourceProduct.getMaskGroup().getNodeCount(); i++){
+                mask = sourceProduct.getMaskGroup().get(i);
+                targetProduct.getMaskGroup().add(mask);
+            }
         }
 
         // create elevation product if band is missing in sourceProduct

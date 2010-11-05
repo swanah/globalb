@@ -41,7 +41,7 @@ import org.esa.beam.gpf.operators.standard.MergeOp;
  * Operator that creates the one and only elevation band
  * based on sourceProduct and BEAM GETASSE30
  */
-@OperatorMetadata(alias="CreateElevationBandOp",
+@OperatorMetadata(alias="ga.CreateElevationBandOp",
                   description = "creates a single band with elevation from getasse",
                   authors = "A.Heckel",
                   version = "1.0",

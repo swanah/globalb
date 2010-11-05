@@ -26,7 +26,10 @@ public class InstrumentConsts {
 
     private final String[] supportedInstruments;
 
-    // band names
+/****************************************
+ * MERIS
+ ****************************************/
+
     private final String idepixFlagBandName = "cloud_classif_flags";
     private final String elevationBandName = "elevation";
     private final String[] merisReflectanceNames = {
@@ -62,12 +65,17 @@ public class InstrumentConsts {
     private final String merisOzoneName = "ozone";
     private final String merisNdviExp = "(reflectance_13 - reflectance_7) / (reflectance_13 + reflectance_7)";
 
+
+/****************************************
+ * VGT
+ ****************************************/
+
     private final String[] vgtReflectanceNames = {"B0", "B2", "B3", "MIR"};
     private final String[] vgtGeomNames = {"SZA", "SAA", "VZA", "VAA"};
     private final double[] vgtFitWeights = {1.0, 1.0, 0.2, 0.1};
     //private final String  vgtCloudExpr = "!(SM.CLOUD_1 ||SM.CLOUD_2 || SM.ICE_SNOW)";
     private final String  vgtCloudExpr = "!("+idepixFlagBandName+".F_CLOUD)";
-    private final String  vgtValidExpr = "(SM.B0_GOOD && SM.B2_GOOD && SM.B3_GOOD && SM.MIR_GOOD && SM.LAND && "+idepixFlagBandName+".F_CLEAR_LAND)";
+    private final String  vgtValidExpr = "(SM.B0_GOOD && SM.B2_GOOD && SM.B3_GOOD && SM.LAND && "+idepixFlagBandName+".F_CLEAR_LAND)";
     //private final String  vgtValidExpr = "(SM.B0_GOOD && SM.B2_GOOD && SM.B3_GOOD && SM.MIR_GOOD && SM.LAND && cloud_classif_flags.F_LAND && " + vgtCloudExpr + ")";
     //private final String  vgtValidExpr = "(SM.B0_GOOD && SM.B2_GOOD && SM.B3_GOOD && SM.MIR_GOOD && SM.LAND && " + vgtCloudExpr + ")";
     private final int vgtNLutBands = 4;
@@ -75,6 +83,10 @@ public class InstrumentConsts {
     private final String vgtOzoneName = "OG";
     private final String vgtNdviExp = "(B3-B2)/(B3+B2)";
 
+
+/****************************************
+ * AATSR
+ ****************************************/
 
     private final String[] aatsrReflectanceNames = {
         "reflec_nadir_0550",
@@ -329,6 +341,17 @@ public class InstrumentConsts {
             fa[i] /= sum;
         }
         return fa;
+    }
+
+    public boolean isVgtAuxBand(Band b) {
+        String bname = b.getName();
+        for (String geomName : getGeomBandNames("VGT")){
+            if (bname.equals(geomName)) return true;
+        }
+        if (bname.equals(getOzoneName("VGT"))) return true;
+        if (bname.equals("WVG")) return true;
+
+        return false;
     }
 
 }

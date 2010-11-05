@@ -8,6 +8,7 @@ package org.esa.beam.globalbedo.sdr.operators;
 import java.util.HashMap;
 import java.util.Map;
 import org.esa.beam.framework.datamodel.Band;
+import org.esa.beam.framework.datamodel.Mask;
 import org.esa.beam.framework.datamodel.Product;
 import org.esa.beam.framework.datamodel.ProductData;
 import org.esa.beam.framework.datamodel.VirtualBand;
@@ -27,7 +28,7 @@ import org.esa.beam.util.ProductUtils;
  * Create Vgt input product for Globalbedo aerosol retrieval and BBDR processor
  * @author akheckel
  */
-@OperatorMetadata(alias = "VgtPrepOp",
+@OperatorMetadata(alias = "ga.VgtPrepOp",
                   description = "Create Vgt product for input to Globalbedo aerosol retrieval and BBDR processor",
                   authors = "Andreas Heckel",
                   version = "1.0",
@@ -61,6 +62,11 @@ public class VgtPrepOp extends Operator {
         ProductUtils.copyTiePointGrids(sourceProduct, targetProduct);
         ProductUtils.copyGeoCoding(sourceProduct, targetProduct);
         ProductUtils.copyFlagBands(sourceProduct, targetProduct);
+        Mask mask;
+        for (int i=0; i<sourceProduct.getMaskGroup().getNodeCount(); i++){
+            mask = sourceProduct.getMaskGroup().get(i);
+            targetProduct.getMaskGroup().add(mask);
+        }
 
         // create pixel calssification if missing in sourceProduct
         // and add flag band to targetProduct
@@ -73,6 +79,10 @@ public class VgtPrepOp extends Operator {
             pixelClassParam.put("gaComputeFlagsOnly", true);
             idepixProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(ComputeChainOp.class), pixelClassParam, sourceProduct);
             ProductUtils.copyFlagBands(idepixProduct, targetProduct);
+            for (int i=0; i<idepixProduct.getMaskGroup().getNodeCount(); i++){
+                mask = idepixProduct.getMaskGroup().get(i);
+                targetProduct.getMaskGroup().add(mask);
+            }
         }
 
         // create elevation product if band is missing in sourceProduct

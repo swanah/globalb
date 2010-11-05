@@ -120,6 +120,7 @@ public class MomoLut implements AerosolLookupTable{
 
         String gasTransKxName = lutPath + instrumentPrefix + "_LUT_6S_Kx-CWV_OZO.bin ";
         //this.gasTransLutKx = readGasTransKxLut(gasTransKxName);
+
     }
 
     // public methods
@@ -196,15 +197,29 @@ public class MomoLut implements AerosolLookupTable{
         return atmP;
     }
 
-    public Map<String, double[]> getLutLimits(){
-        Map<String, double[]> limits = new HashMap<String, double[]>(5);
-        limits.put("vza", new double[]{vza[0],vza[nVza-1]});
-        limits.put("sza", new double[]{sza[0],sza[nSza-1]});
-        limits.put("azi", new double[]{azi[0],azi[nAzi-1]});
-        limits.put("hsf", new double[]{hsf[0],hsf[nHsf-1]});
-        limits.put("aot", new double[]{aot[0],aot[nAot-1]});
+    public boolean isInsideLut(InputPixelData ipd){
+        Map<DimSelector, LutLimits> lutLimits = getLutLimits();
+        boolean valid = (ipd.geom.vza >= lutLimits.get(DimSelector.VZA).min)
+            && (ipd.geom.vza <= lutLimits.get(DimSelector.VZA).max)
+            && (ipd.geom.sza >= lutLimits.get(DimSelector.SZA).min)
+            && (ipd.geom.sza <= lutLimits.get(DimSelector.SZA).max)
+            && (ipd.geom.razi >= lutLimits.get(DimSelector.AZI).min)
+            && (ipd.geom.razi <= lutLimits.get(DimSelector.AZI).max)
+            && (ipd.surfPressure >= lutLimits.get(DimSelector.HSF).min)
+            && (ipd.surfPressure <= lutLimits.get(DimSelector.HSF).max);
+        return valid;
+    }
+
+    public Map<DimSelector, LutLimits> getLutLimits(){
+        Map<DimSelector, LutLimits> limits = new HashMap<DimSelector, LutLimits>(5);
+        limits.put(DimSelector.VZA, new LutLimits(vza[0],vza[nVza-1]));
+        limits.put(DimSelector.SZA, new LutLimits(sza[0],sza[nSza-1]));
+        limits.put(DimSelector.AZI, new LutLimits(azi[0],azi[nAzi-1]));
+        limits.put(DimSelector.HSF, new LutLimits(hsf[0],hsf[nHsf-1]));
+        limits.put(DimSelector.AOT, new LutLimits(aot[0],aot[nAot-1]));
         return limits;
     }
+
 
     // private methods
     private int calcPosition(int[] indices, int[] sizes) {
@@ -402,4 +417,17 @@ public class MomoLut implements AerosolLookupTable{
         return new LookupTable(kxValues, dims);
     }
 
+    public enum DimSelector {
+        VZA, SZA, AZI, HSF, AOT;
+    }
+
+    public class LutLimits {
+        public final float min;
+        public final float max;
+
+        public LutLimits(float min, float max) {
+            this.min = min;
+            this.max = max;
+        }
+    }
 }

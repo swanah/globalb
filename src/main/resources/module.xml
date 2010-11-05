@@ -2,7 +2,7 @@
     <manifestVersion>1.0.0</manifestVersion>
     <symbolicName>beam-globalbedo-aerosol</symbolicName>
     <name>BEAM GlobAlbedo Aerosol</name>
-    <version>1.0_4.7.1</version>
+    <version>1.1</version>
 
     <!-- TODO - As needed, adapt metadata elements here -->
     <description>BEAM GlobAlbedo Aerosol</description>
@@ -39,22 +39,11 @@
     <dependency>
         <module>beam-meris-brr</module>
     </dependency>
-    <!-- for use of Synergy LUTs -->
-    <dependency>
-        <module>beam-meris-aatsr-synergy-core</module>
-    </dependency>
-
     <dependency>
         <module>beam-meris-l2auxdata</module>
     </dependency>
     <dependency>
         <module>beam-meris-sdr</module>
-    </dependency>
-    <dependency>
-        <module>beam-meris-aatsr-synergy-preprocessing</module>
-    </dependency>
-    <dependency>
-        <module>beam-meris-aatsr-synergy-cloud-screening</module>
     </dependency>
 
     <extension point="beam-ui:actions">
@@ -67,9 +56,9 @@
         <action>
             <class>org.esa.beam.visat.actions.DefaultOperatorAction</class>
             <parent>globalb</parent>
-            <id>AerosolOp</id>
+            <id>internalAerosolOp2</id>
             <helpId>aerosol</helpId>
-            <operatorName>AerosolOp2</operatorName>
+            <operatorName>ga.AerosolOp2</operatorName>
             <text>AerosolOp...</text>
             <dialogTitle>AerosolOp</dialogTitle>
             <targetProductNameSuffix>_AerosolOp</targetProductNameSuffix>
@@ -79,7 +68,7 @@
             <parent>globalb</parent>
             <id>MainAerosolOp</id>
             <helpId>master</helpId>
-            <operatorName>GaMasterOp</operatorName>
+            <operatorName>ga.MasterOp</operatorName>
             <text>AerosolMasterOp...</text>
             <dialogTitle>AerosolMasterOp</dialogTitle>
             <targetProductNameSuffix>_AerosolOp</targetProductNameSuffix>
@@ -87,19 +76,9 @@
         <action>
             <class>org.esa.beam.visat.actions.DefaultOperatorAction</class>
             <parent>globalb</parent>
-            <id>DownSclOp</id>
-            <helpId>downscl</helpId>
-            <operatorName>DownSclOp</operatorName>
-            <text>DownSclOp...</text>
-            <dialogTitle>DownSclOp</dialogTitle>
-            <targetProductNameSuffix>_dwn</targetProductNameSuffix>
-        </action>
-        <action>
-            <class>org.esa.beam.visat.actions.DefaultOperatorAction</class>
-            <parent>globalb</parent>
-            <id>UpSclOp</id>
+            <id>internalUpSclOp</id>
             <helpId>upscl</helpId>
-            <operatorName>UpSclOp</operatorName>
+            <operatorName>ga.UpSclOp</operatorName>
             <text>UpSclOp...</text>
             <dialogTitle>UpSclOp</dialogTitle>
             <targetProductNameSuffix>_up</targetProductNameSuffix>
@@ -107,9 +86,9 @@
         <action>
             <class>org.esa.beam.visat.actions.DefaultOperatorAction</class>
             <parent>globalb</parent>
-            <id>MerisPrepOp</id>
+            <id>internalMerisPrepOp</id>
             <helpId>merisprep</helpId>
-            <operatorName>MerisPrepOp</operatorName>
+            <operatorName>ga.MerisPrepOp</operatorName>
             <text>MerisPrepOp...</text>
             <dialogTitle>MerisPrepOp</dialogTitle>
             <targetProductNameSuffix>_reflec</targetProductNameSuffix>
@@ -117,9 +96,9 @@
         <action>
             <class>org.esa.beam.visat.actions.DefaultOperatorAction</class>
             <parent>globalb</parent>
-            <id>GapFillingOp</id>
+            <id>internalGapFillingOp</id>
             <helpId>gapfilling</helpId>
-            <operatorName>GapFillingOp</operatorName>
+            <operatorName>ga.GapFillingOp</operatorName>
             <text>GapFillingOp...</text>
             <dialogTitle>GapFillingOp</dialogTitle>
             <targetProductNameSuffix>_fill</targetProductNameSuffix>

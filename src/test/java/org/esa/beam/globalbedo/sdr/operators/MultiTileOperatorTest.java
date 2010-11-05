@@ -1,13 +1,7 @@
 package org.esa.beam.globalbedo.sdr.operators;
 
-import org.esa.beam.globalbedo.sdr.operators.AerosolOp;
 import junit.framework.TestCase;
-import org.esa.beam.framework.datamodel.Band;
-import org.esa.beam.framework.datamodel.Product;
-import org.esa.beam.framework.datamodel.ProductData;
 
-import javax.media.jai.operator.ConstantDescriptor;
-import java.awt.image.RenderedImage;
 
 /**
  * Unit test for AerosolOp.

@@ -15,7 +15,6 @@ import org.esa.beam.framework.gpf.OperatorException;
 import org.esa.beam.framework.gpf.OperatorSpi;
 import org.esa.beam.framework.gpf.Tile;
 import org.esa.beam.framework.gpf.annotations.OperatorMetadata;
-import org.esa.beam.framework.gpf.annotations.Parameter;
 import org.esa.beam.framework.gpf.annotations.SourceProduct;
 import org.esa.beam.framework.gpf.annotations.TargetProduct;
 import org.esa.beam.util.ProductUtils;
@@ -24,10 +23,10 @@ import org.esa.beam.util.ProductUtils;
  *
  * @author akheckel
  */
-@OperatorMetadata(alias = "GapFillingOp",
+@OperatorMetadata(alias = "ga.GapFillingOp",
                   description = "Fills Gaps in Grid",
                   authors = "Andreas Heckel",
-                  version = "1.0",
+                  version = "1.1",
                   copyright = "(C) 2010 by University Swansea (a.heckel@swansea.ac.uk)")
 public class GapFillingOp extends Operator {
 
@@ -48,11 +47,11 @@ public class GapFillingOp extends Operator {
 
     @Override
     public void initialize() throws OperatorException {
-        box = 75;
-        off = box/2;
-        climAot = 0.05;
-        climErr = 1;
-        climDist = 7;
+        off = 25;
+        box = off*2+1;
+        climAot = 0.07;
+        climErr = 2;
+        climDist = 10;
         String pname = fillProduct.getName();
         String ptype = fillProduct.getProductType();
         rasterWidth = fillProduct.getSceneRasterWidth();
@@ -67,6 +66,7 @@ public class GapFillingOp extends Operator {
     public void computeTile(Band targetBand, Tile targetTile, ProgressMonitor pm) throws OperatorException {
         String bandName = targetBand.getName();
         Rectangle tarRec = targetTile.getRectangle();
+//System.err.println("gapfilling "+targetBand.getName()+" on tile: " + tarRec);
         Rectangle srcRec = new Rectangle(tarRec.x-off, tarRec.y-off, tarRec.width+box, tarRec.height+box);
         Tile aotTile = getSourceTile(aotProduct.getBand(bandName), srcRec, BorderExtender.createInstance(BorderExtender.BORDER_ZERO), ProgressMonitor.NULL);
         Tile fillTile = getSourceTile(fillProduct.getBand(bandName), srcRec, BorderExtender.createInstance(BorderExtender.BORDER_ZERO), ProgressMonitor.NULL);
@@ -89,7 +89,8 @@ public class GapFillingOp extends Operator {
     }
 
     private float getAve(int x, int y, Tile srcTile, double noDataValue, double climVal){
-        double n = invDistanceWeight(climDist, 0, 4);
+        double n0 = invDistanceWeight(climDist, 0, 4);
+        double n = n0;
         double sum = climVal * n;
         float val;
         double weight;
@@ -100,9 +101,8 @@ public class GapFillingOp extends Operator {
         for (int j=ys; j<=ye; j++){
             for (int i=xs; i<=xe; i++){
                 val = srcTile.getSampleFloat(i, j);
-                //weight = Math.exp(-((i-x)^2+(j-y)^2)/1.5);
-                weight = invDistanceWeight(i-x, j-y, 4);
                 if (Double.compare(noDataValue, val) != 0){
+                    weight = invDistanceWeight(i-x, j-y, 4);
                     sum += val*weight;
                     n += weight;
                 }

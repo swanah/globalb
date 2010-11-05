@@ -16,7 +16,6 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.esa.beam.framework.gpf.OperatorException;
-import org.esa.beam.synergy.util.SynergyConstants;
 import org.esa.beam.util.math.LookupTable;
 
 /**
