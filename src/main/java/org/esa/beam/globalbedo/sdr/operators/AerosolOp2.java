@@ -6,8 +6,6 @@
 package org.esa.beam.globalbedo.sdr.operators;
 
 import com.bc.ceres.core.ProgressMonitor;
-import java.awt.Color;
-import java.awt.Dimension;
 import java.awt.Rectangle;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -15,18 +13,13 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
-import java.util.Comparator;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
-import java.util.SortedSet;
-import java.util.TreeSet;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.media.jai.BorderExtender;
 import org.esa.beam.framework.datamodel.Band;
-import org.esa.beam.framework.datamodel.Mask;
+import org.esa.beam.framework.datamodel.FlagCoding;
 import org.esa.beam.framework.datamodel.Product;
 import org.esa.beam.framework.datamodel.ProductData;
 import org.esa.beam.framework.datamodel.RasterDataNode;
@@ -41,9 +34,8 @@ import org.esa.beam.framework.gpf.annotations.SourceProduct;
 import org.esa.beam.framework.gpf.annotations.TargetProduct;
 import org.esa.beam.globalbedo.sdr.lutUtils.Aardvarc4DLut;
 import org.esa.beam.globalbedo.sdr.lutUtils.MomoLut;
-import org.esa.beam.globalbedo.sdr.lutUtils.MomoLut.DimSelector;
-import org.esa.beam.globalbedo.sdr.lutUtils.MomoLut.LutLimits;
 import org.esa.beam.gpf.operators.standard.BandMathsOp;
+import org.esa.beam.util.BitSetter;
 import org.esa.beam.util.Guardian;
 import org.esa.beam.util.math.RsMathUtils;
 
@@ -58,6 +50,9 @@ import org.esa.beam.util.math.RsMathUtils;
  * TODO: getSourceTiles, readAllValues and readAve/DarkestPixel shouldn't depend on order of band names defined in init
  *       !!! Potential error source !!!!
  * TODO: (MINOR) ozone should always be atm.cm not DU
+ * TODO: snow pixels should be treated separatly
+ * TODO: add new surf specs for spectral Approach over desert and snow
+ * TODO: AERONET output
  *
  * @author akheckel
  *
@@ -120,6 +115,8 @@ public class AerosolOp2 extends Operator {
     private Rectangle pixelWindow;
     private float ndviTheshold;
 
+    private boolean addFitBands = false;
+
     @Override
     public void initialize() throws OperatorException {
         offset = 4;
@@ -165,7 +162,7 @@ public class AerosolOp2 extends Operator {
 
     @Override
     public void computeTileStack(Map<Band, Tile> targetTiles, Rectangle targetRectangle, ProgressMonitor pm) throws OperatorException {
-//System.err.println("retrieve AOT on tile: " + targetRectangle);
+
         Rectangle srcRec = getSourceRectangle(targetRectangle, pixelWindow);
 
         if (! containsTileValidData(srcRec)){
@@ -191,7 +188,6 @@ public class AerosolOp2 extends Operator {
         BrentFitFunction brentFitFunction = null;
 
         for (int iY=y0; iY <= height; iY++) {
-//System.err.println(iY + "/" + height);
             for (int iX=x0; iX <= width; iX++) {
 
                 // read pixel data and init brent fit
@@ -210,7 +206,8 @@ public class AerosolOp2 extends Operator {
 
                 // run retrieval and set target samples
                 if (inPixField != null){
-                    result = new PointRetrieval(brentFitFunction).runRetrieval(instrument);
+                    double maxAOT = brentFitFunction.getMaxAOT();
+                    result = new PointRetrieval(brentFitFunction).runRetrieval(maxAOT);
                     if (! result.retrievalFailed){
                         setTargetSamples(targetTiles, iX, iY, inPixField[0], result);
                     }
@@ -257,7 +254,7 @@ public class AerosolOp2 extends Operator {
             }
             skip += nSpecWvl;
         }
-        double surfP = tileValues[skip];
+        double surfP = Math.min(tileValues[skip], 1013.25);
         double o3DU = ensureO3DobsonUnits(tileValues[skip + 1]);
         InputPixelData ipd = new InputPixelData(geomNadir, geomFward, surfP, o3DU, this.wvCol, specWvl[0], toaRefl[0], toaRefl[1]);
         return ipd;
@@ -270,25 +267,28 @@ public class AerosolOp2 extends Operator {
     }
 
     private void createTargetProductBands() {
-        Band targetBand = new Band("aot", ProductData.TYPE_FLOAT32, tarRasterWidth, tarRasterHeight);
-        targetBand.setDescription("best fitting aot");
-        targetBand.setNoDataValue(-1);
-        targetBand.setNoDataValueUsed(true);
-        targetBand.setValidPixelExpression("");
-        targetBand.setUnit("dl");
+        Band targetBand = GaHelper.getInstance().createTargetBand(AotConsts.aot, tarRasterWidth, tarRasterHeight);
+        targetProduct.addBand(targetBand);
+        targetBand = GaHelper.getInstance().createTargetBand(AotConsts.aotErr, tarRasterWidth, tarRasterHeight);
         targetProduct.addBand(targetBand);
 
-        Mask mask = Mask.BandMathsType.create("aotValid", "aot is Valid", tarRasterWidth, tarRasterHeight, "(aot > 0.0)", Color.black, 0.7);
-        targetProduct.getMaskGroup().add(mask);
+        if (addFitBands){
+            targetBand = new Band("fit_err", ProductData.TYPE_FLOAT32, tarRasterWidth, tarRasterHeight);
+            targetBand.setDescription("aot uncertainty");
+            targetBand.setNoDataValue(-1);
+            targetBand.setNoDataValueUsed(true);
+            targetBand.setValidPixelExpression("");
+            targetBand.setUnit("dl");
+            targetProduct.addBand(targetBand);
 
-        targetBand = new Band("aot_err", ProductData.TYPE_FLOAT32, tarRasterWidth, tarRasterHeight);
-        targetBand.setDescription("aot uncertainty");
-        targetBand.setNoDataValue(-1);
-        targetBand.setNoDataValueUsed(true);
-        targetBand.setValidPixelExpression("");
-        targetBand.setUnit("dl");
-        targetProduct.addBand(targetBand);
-
+            targetBand = new Band("fit_curv", ProductData.TYPE_FLOAT32, tarRasterWidth, tarRasterHeight);
+            targetBand.setDescription("aot uncertainty");
+            targetBand.setNoDataValue(-1);
+            targetBand.setNoDataValueUsed(true);
+            targetBand.setValidPixelExpression("");
+            targetBand.setUnit("dl");
+            targetProduct.addBand(targetBand);
+        }
     }
 
     private Rectangle getSourceRectangle(Rectangle targetRectangle, Rectangle pixelWindow) {
@@ -355,7 +355,7 @@ public class AerosolOp2 extends Operator {
     }
 
     private InputPixelData[] readDarkestNPixels(Map<String, Tile> sourceTiles, Map<String,Double> sourceNoData, int iX, int iY, Rectangle pixelWindow) {
-        int NPixel = 5;
+        int NPixel = 10;
         ArrayList<InputPixelData> inPixelList = new ArrayList<InputPixelData>(pixelWindow.height*pixelWindow.width);
         InputPixelData[] inPixField = null;
         boolean valid = false;
@@ -380,7 +380,7 @@ public class AerosolOp2 extends Operator {
                 for (int x = xOffset; x < xOffset+pixelWindow.width; x++){
                     valid = sourceTiles.get(validName).getSampleBoolean(x, y);
                     ndvi  = sourceTiles.get(ndviName).getSampleFloat(x, y);
-                    if (valid && (ndvi > ndviTheshold)) {
+                    if (valid && (ndvi >= ndviArr[ndviArr.length-1-NPixel])) {
                         valid = valid && readAllValues(x, y, sourceTiles, sourceNoData, tileValues);
                         InputPixelData ipd = createInPixelData(tileValues);
                         if (valid && momo.isInsideLut(ipd)){
@@ -400,11 +400,19 @@ public class AerosolOp2 extends Operator {
     private void setTargetSamples(Map<Band, Tile> targetTiles, int iX, int iY, InputPixelData ipd, RetrievalResults result) {
         targetTiles.get(targetProduct.getBand("aot")).setSample(iX, iY, result.optAOT);
         targetTiles.get(targetProduct.getBand("aot_err")).setSample(iX, iY, result.retrievalErr);
+        if (addFitBands){
+            targetTiles.get(targetProduct.getBand("fit_err")).setSample(iX, iY, result.optErr);
+            targetTiles.get(targetProduct.getBand("fit_curv")).setSample(iX, iY, result.curvature);
+        }
     }
 
     private void setInvalidTargetSamples(Map<Band, Tile> targetTiles, int iX, int iY, InputPixelData ipd) {
         targetTiles.get(targetProduct.getBand("aot")).setSample(iX, iY, targetProduct.getBand("aot").getGeophysicalNoDataValue());
         targetTiles.get(targetProduct.getBand("aot_err")).setSample(iX, iY, targetProduct.getBand("aot_err").getGeophysicalNoDataValue());
+        if (addFitBands){
+            targetTiles.get(targetProduct.getBand("fit_err")).setSample(iX, iY, targetProduct.getBand("fit_err").getGeophysicalNoDataValue());
+            targetTiles.get(targetProduct.getBand("fit_curv")).setSample(iX, iY, targetProduct.getBand("fit_curv").getGeophysicalNoDataValue());
+        }
     }
 
     private void setInvalidTargetSamples(Map<Band, Tile> targetTiles, int iX, int iY) {
@@ -592,6 +600,15 @@ public class AerosolOp2 extends Operator {
             if (valid) break;
         }
         return valid;
+    }
+
+    private void printInData(InputPixelData ipd) {
+        for (int i=0;i<15;i++) System.err.printf("%ff, ", ipd.specWvl[i]);
+        System.err.println();
+        for (int i=0;i<15;i++) System.err.printf("%ff, ",ipd.toaReflec[i]);
+        System.err.println();
+        System.err.printf("%ff %ff %ff",ipd.geom.sza, ipd.geom.vza, ipd.geom.razi);
+        System.err.println();
     }
 
 

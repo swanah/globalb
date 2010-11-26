@@ -19,6 +19,9 @@ import org.esa.beam.framework.gpf.OperatorException;
 /**
  * Instrument specific constants
  * @author akheckel
+ *
+ * TODO: revise validPixel Expression: properly include range of LUTs
+ * TODO: revise validPixel Expression: enable separate treatment of snow pixels
  */
 public class InstrumentConsts {
 
@@ -31,6 +34,7 @@ public class InstrumentConsts {
  ****************************************/
 
     private final String idepixFlagBandName = "cloud_classif_flags";
+    private final String idepixFwardFlagBandName = "cloud_classif_flags_fward";
     private final String elevationBandName = "elevation";
     private final String[] merisReflectanceNames = {
         "reflectance_1",
@@ -72,10 +76,10 @@ public class InstrumentConsts {
 
     private final String[] vgtReflectanceNames = {"B0", "B2", "B3", "MIR"};
     private final String[] vgtGeomNames = {"SZA", "SAA", "VZA", "VAA"};
-    private final double[] vgtFitWeights = {1.0, 1.0, 0.2, 0.1};
+    private final double[] vgtFitWeights = {1.0, 1.0, 0.5, 0.1};
     //private final String  vgtCloudExpr = "!(SM.CLOUD_1 ||SM.CLOUD_2 || SM.ICE_SNOW)";
     private final String  vgtCloudExpr = "!("+idepixFlagBandName+".F_CLOUD)";
-    private final String  vgtValidExpr = "(SM.B0_GOOD && SM.B2_GOOD && SM.B3_GOOD && SM.LAND && "+idepixFlagBandName+".F_CLEAR_LAND)";
+    private final String  vgtValidExpr = "(SM.B0_GOOD && SM.B2_GOOD && SM.B3_GOOD && SM.LAND && "+idepixFlagBandName+".F_CLEAR_LAND && (SZA<70))";
     //private final String  vgtValidExpr = "(SM.B0_GOOD && SM.B2_GOOD && SM.B3_GOOD && SM.MIR_GOOD && SM.LAND && cloud_classif_flags.F_LAND && " + vgtCloudExpr + ")";
     //private final String  vgtValidExpr = "(SM.B0_GOOD && SM.B2_GOOD && SM.B3_GOOD && SM.MIR_GOOD && SM.LAND && " + vgtCloudExpr + ")";
     private final int vgtNLutBands = 4;
@@ -110,7 +114,9 @@ public class InstrumentConsts {
     };
     private final double[] aatsrFitWeights = {1.5, 1.0, 1.0, 1.55};
     private final String  aatsrCloudExpr = "!(cloud_flags_nadir.CLOUDY) && !(cloud_flags_fward.CLOUDY)";
-    private final String  aatsrValidExpr = "("+idepixFlagBandName+".F_CLEAR_LAND && "
+    private final String  aatsrValidExpr = "("+idepixFlagBandName+".F_CLEAR_LAND && "+idepixFwardFlagBandName+".F_CLEAR_LAND && "
+        + " (90-sun_elev_nadir) < 70 &&"
+        + " (90-sun_elev_fward) < 70 &&"
         + " reflec_nadir_0550 >= 0 &&"
         + " reflec_nadir_0670 >= 0 &&"
         + " reflec_nadir_0870 >= 0 &&"
@@ -303,6 +309,10 @@ public class InstrumentConsts {
 
     public String getIdepixFlagBandName() {
         return idepixFlagBandName;
+    }
+
+    public String getIdepixFwardFlagBandName() {
+        return idepixFwardFlagBandName;
     }
 
     public String getElevationBandName() {

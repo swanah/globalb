@@ -51,27 +51,34 @@ public class MerisPrepOp extends Operator {
         final boolean needElevation = (!sourceProduct.containsBand(instrC.getElevationBandName()));
         final boolean needSurfacePres = (!sourceProduct.containsBand(instrC.getSurfPressureName("MERIS")));
 
+        //general SzaSubset to less 70°
+        Map<String,Object> szaSubParam = new HashMap<String, Object>(3);
+        szaSubParam.put("szaBandName", "sun_zenith");
+        szaSubParam.put("hasSolarElevation", false);
+        szaSubParam.put("szaLimit", 69.99);
+        Product szaSubProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(SzaSubsetOp.class), szaSubParam, sourceProduct);
+
         // convert radiance bands to reflectance
-        Product reflProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(Rad2ReflOp.class), GPF.NO_PARAMS, sourceProduct);
+        Product reflProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(Rad2ReflOp.class), GPF.NO_PARAMS, szaSubProduct);
 
         // subset might have set ptype to null, thus:
-        if (sourceProduct.getDescription() == null) sourceProduct.setDescription("MERIS Radiance product");
+        if (szaSubProduct.getDescription() == null) szaSubProduct.setDescription("MERIS Radiance product");
 
         // setup target product primarily as copy of sourceProduct
-        final int rasterWidth = sourceProduct.getSceneRasterWidth();
-        final int rasterHeight = sourceProduct.getSceneRasterHeight();
-        targetProduct = new Product(sourceProduct.getName(),
-                                    sourceProduct.getProductType(),
+        final int rasterWidth = szaSubProduct.getSceneRasterWidth();
+        final int rasterHeight = szaSubProduct.getSceneRasterHeight();
+        targetProduct = new Product(szaSubProduct.getName(),
+                                    szaSubProduct.getProductType(),
                                     rasterWidth, rasterHeight);
-        targetProduct.setStartTime(sourceProduct.getStartTime());
-        targetProduct.setEndTime(sourceProduct.getEndTime());
-        targetProduct.setPointingFactory(sourceProduct.getPointingFactory());
-        ProductUtils.copyTiePointGrids(sourceProduct, targetProduct);
-        ProductUtils.copyGeoCoding(sourceProduct, targetProduct);
-        ProductUtils.copyFlagBands(sourceProduct, targetProduct);
+        targetProduct.setStartTime(szaSubProduct.getStartTime());
+        targetProduct.setEndTime(szaSubProduct.getEndTime());
+        targetProduct.setPointingFactory(szaSubProduct.getPointingFactory());
+        ProductUtils.copyTiePointGrids(szaSubProduct, targetProduct);
+        ProductUtils.copyGeoCoding(szaSubProduct, targetProduct);
+        ProductUtils.copyFlagBands(szaSubProduct, targetProduct);
         Mask mask;
-        for (int i=0; i<sourceProduct.getMaskGroup().getNodeCount(); i++){
-            mask = sourceProduct.getMaskGroup().get(i);
+        for (int i=0; i<szaSubProduct.getMaskGroup().getNodeCount(); i++){
+            mask = szaSubProduct.getMaskGroup().get(i);
             targetProduct.getMaskGroup().add(mask);
         }
 
@@ -84,10 +91,10 @@ public class MerisPrepOp extends Operator {
             pixelClassParam.put("gaCopyRadiances", false);
             pixelClassParam.put("gaCopyAnnotations", false);
             pixelClassParam.put("gaComputeFlagsOnly", true);
-            idepixProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(ComputeChainOp.class), pixelClassParam, sourceProduct);
+            idepixProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(ComputeChainOp.class), pixelClassParam, szaSubProduct);
             ProductUtils.copyFlagBands(idepixProduct, targetProduct);
-            for (int i=0; i<sourceProduct.getMaskGroup().getNodeCount(); i++){
-                mask = sourceProduct.getMaskGroup().get(i);
+            for (int i=0; i<szaSubProduct.getMaskGroup().getNodeCount(); i++){
+                mask = szaSubProduct.getMaskGroup().get(i);
                 targetProduct.getMaskGroup().add(mask);
             }
         }
@@ -95,7 +102,7 @@ public class MerisPrepOp extends Operator {
         // create elevation product if band is missing in sourceProduct
         Product elevProduct = null;
         if (needElevation){
-            elevProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(CreateElevationBandOp.class), GPF.NO_PARAMS, sourceProduct);
+            elevProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(CreateElevationBandOp.class), GPF.NO_PARAMS, szaSubProduct);
         }
 
         // create surface pressure estimate product if band is missing in sourceProduct
@@ -116,7 +123,7 @@ public class MerisPrepOp extends Operator {
         // copy all non-radiance bands from sourceProduct and
         // copy reflectance bands from reflProduct
         Band tarBand;
-        for (Band srcBand : sourceProduct.getBands()){
+        for (Band srcBand : szaSubProduct.getBands()){
             String srcName = srcBand.getName();
             if (srcBand.isFlagBand()){
                 tarBand = targetProduct.getBand(srcName);
@@ -131,7 +138,7 @@ public class MerisPrepOp extends Operator {
                 tarBand.setSourceImage(reflBand.getSourceImage());
             }
             else {
-                tarBand = ProductUtils.copyBand(srcName, sourceProduct, targetProduct);
+                tarBand = ProductUtils.copyBand(srcName, szaSubProduct, targetProduct);
                 tarBand.setSourceImage(srcBand.getSourceImage());
 
             }

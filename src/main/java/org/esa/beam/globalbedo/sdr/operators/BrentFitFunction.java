@@ -26,7 +26,7 @@ public class BrentFitFunction implements UnivRetrievalFunction {
 
 
     private final int model;
-    private final InputPixelData[] inPixField;
+    public final InputPixelData[] inPixField;
     private final AerosolLookupTable lut;
     private final float llimit;
     private final float penalty;
@@ -81,6 +81,16 @@ public class BrentFitFunction implements UnivRetrievalFunction {
         throw new UnsupportedOperationException("Not supported yet.");
     }
 
+    public double getMaxAOT() {
+        if (lut instanceof MomoLut){
+            int min = 0;
+            for (int i=0; i<inPixField.length; i++)
+                if (inPixField[i].toaReflec[0] < inPixField[min].toaReflec[0]) min=i;
+            return ((MomoLut) lut).getMaxAOT(inPixField[min]);
+        }
+        return 2.0;
+    }
+
 
     //private methods
 
@@ -91,7 +101,7 @@ public class BrentFitFunction implements UnivRetrievalFunction {
         if ( !(fmin > 0) ) {
             double[] p = initStartVector(model);
             double xi[][] = initParameterBasis(p.length);
-            double ftol = 0.5e-2;   // limit for optimization
+            double ftol = 2e-3;   // limit for optimization
             MvFunction surfModel = null;
             switch (model){
                 case 1:
@@ -108,7 +118,6 @@ public class BrentFitFunction implements UnivRetrievalFunction {
             fmin = powell.getFmin();
         }
         else {
-            //fmin += 1e-5;
             fmin += 1e-8;
         }
         return fmin;

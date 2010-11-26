@@ -11,6 +11,7 @@ import java.util.HashMap;
 import java.util.Map;
 import org.esa.beam.dataio.envisat.EnvisatConstants;
 import org.esa.beam.framework.datamodel.Band;
+import org.esa.beam.framework.datamodel.Mask;
 import org.esa.beam.framework.datamodel.Product;
 import org.esa.beam.framework.gpf.GPF;
 import org.esa.beam.framework.gpf.Operator;
@@ -41,6 +42,10 @@ public class GaMasterOp  extends Operator {
     private boolean copyToaRadBands;
     @Parameter(defaultValue="false")
     private boolean copyToaReflBands;
+    @Parameter(defaultValue="false")
+    private boolean noFilling;
+    @Parameter(defaultValue="false")
+    private boolean noUpscaling;
 /*
     @Parameter(defaultValue="true")
     private boolean retrieveAOT = true;
@@ -51,17 +56,22 @@ public class GaMasterOp  extends Operator {
 */
     @Parameter(defaultValue="2")
     private int vegSpecId;
+    @Parameter(defaultValue="9")
     private int scale;
     private String instrument;
 
     @Override
     public void initialize() throws OperatorException {
-        scale = 9;
-        //Dimension prefTileSize = sourceProduct.getPreferredTileSize();
-        int xTileSize = (sourceProduct.getSceneRasterWidth() > 1000)? 1000 : sourceProduct.getSceneRasterWidth();
-        int yTileSize = 9;
-        Dimension prefTileSize = new Dimension(xTileSize, yTileSize);
-        Dimension smallTileSize = new Dimension(prefTileSize.width/scale+1, prefTileSize.height/scale+1);
+        int npix=1;
+        //int tarTileWidth = Math.min(targetProduct.getSceneRasterWidth(), npix * 51 * scale);
+        Dimension fillTS = new Dimension(npix, npix);
+        Dimension aotTS = new Dimension(npix*9, npix*9);
+        //Dimension targetTS = new Dimension(tarTileWidth, scale);
+        Dimension targetTS = new Dimension(npix*9*scale, npix*9*scale);
+        RenderingHints rhTarget = new RenderingHints(GPF.KEY_TILE_SIZE, targetTS);
+        RenderingHints rhAot = new RenderingHints(GPF.KEY_TILE_SIZE, aotTS);
+        RenderingHints rhFill = new RenderingHints(GPF.KEY_TILE_SIZE, fillTS);
+
 
         final boolean isMerisProduct = sourceProduct.getProductType().equals(EnvisatConstants.MERIS_RR_L1B_PRODUCT_TYPE_NAME);
         final boolean isAatsrProduct = sourceProduct.getProductType().equals(EnvisatConstants.AATSR_L1B_TOA_PRODUCT_TYPE_NAME);
@@ -76,17 +86,14 @@ public class GaMasterOp  extends Operator {
         }
         else if (isAatsrProduct) {
             instrument = "AATSR";
-            reflProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(AatsrPrepOp.class), GPF.NO_PARAMS, sourceProduct);;
+            reflProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(AatsrPrepOp.class), GPF.NO_PARAMS, sourceProduct);
         }
         else if (isVgtProduct) {
             instrument = "VGT";
+            if (sourceProduct.getSceneRasterWidth() > 40000) throw new OperatorException("Product too large, who would do a global grid at 0.008deg resolution???");
             reflProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(VgtPrepOp.class), GPF.NO_PARAMS, sourceProduct);
         }
 
-
-        //Map<String, Object> sclParams = new HashMap<String, Object>(1);
-        //sclParams.put("scale", scale);
-        //Product downsclProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(DownSclOp.class), sclParams, reflProduct);
 
         Map<String, Object> aotParams = new HashMap<String, Object>(4);
         aotParams.put("vegSpecId", vegSpecId);
@@ -98,48 +105,52 @@ public class GaMasterOp  extends Operator {
         aotParams.put("saveModelBands", saveModelBands);
          *
          */
+        Product aotDownsclProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(AerosolOp2.class), aotParams, reflProduct, rhAot);
 
-        RenderingHints rh = new RenderingHints(GPF.KEY_TILE_SIZE, smallTileSize);
-        Product aotDownsclProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(AerosolOp2.class), aotParams, reflProduct, rh);
+        Product fillAotProduct = aotDownsclProduct;
+        if (!noFilling){
+            Map<String, Product> fillSourceProds = new HashMap<String, Product>(2);
+            fillSourceProds.put("aotProduct", aotDownsclProduct);
+            fillAotProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(GapFillingOp.class), GPF.NO_PARAMS, fillSourceProds, rhFill);
+        }
 
-        Map<String, Product> fillSourceProds = new HashMap<String, Product>(2);
-        fillSourceProds.put("aotProduct", aotDownsclProduct);
-        fillSourceProds.put("fillProduct", aotDownsclProduct);
-        Product fillAotProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(GapFillingOp.class), GPF.NO_PARAMS, fillSourceProds, rh);
+        targetProduct = fillAotProduct;
+        if (!noUpscaling){
+            Map<String, Product> upsclProducts = new HashMap<String, Product>(2);
+            upsclProducts.put("lowresProduct", fillAotProduct);
+            upsclProducts.put("hiresProduct", reflProduct);
+            Map<String, Object> sclParams = new HashMap<String, Object>(1);
+            sclParams.put("scale", scale);
+            Product aotHiresProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(UpSclOp.class), sclParams, upsclProducts, rhTarget);
 
-        Map<String, Product> upsclProducts = new HashMap<String, Product>(2);
-        upsclProducts.put("lowresProduct", fillAotProduct);
-        upsclProducts.put("hiresProduct", reflProduct);
-        Map<String, Object> sclParams = new HashMap<String, Object>(1);
-        sclParams.put("scale", scale);
-        rh = new RenderingHints(GPF.KEY_TILE_SIZE, prefTileSize);
-        Product aotHiresProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(UpSclOp.class), sclParams, upsclProducts, rh);
-
-        targetProduct = mergeToTargetProduct(reflProduct, aotHiresProduct);
+            targetProduct = mergeToTargetProduct(reflProduct, aotHiresProduct);
+        }
         setTargetProduct(targetProduct);
     }
 
     private Product mergeToTargetProduct(Product reflProduct, Product aotHiresProduct) {
-        String pname = sourceProduct.getName() + "_AOT";
-        String ptype = sourceProduct.getProductType() + " GlobAlbedo AOT";
-        int rasterWidth = sourceProduct.getSceneRasterWidth();
-        int rasterHeight = sourceProduct.getSceneRasterHeight();
+        String pname = reflProduct.getName() + "_AOT";
+        String ptype = reflProduct.getProductType() + " GlobAlbedo AOT";
+        int rasterWidth = reflProduct.getSceneRasterWidth();
+        int rasterHeight = reflProduct.getSceneRasterHeight();
         Product tarP = new Product(pname, ptype, rasterWidth, rasterHeight);
-        tarP.setStartTime(sourceProduct.getStartTime());
-        tarP.setEndTime(sourceProduct.getEndTime());
-        tarP.setPointingFactory(sourceProduct.getPointingFactory());
+        tarP.setStartTime(reflProduct.getStartTime());
+        tarP.setEndTime(reflProduct.getEndTime());
+        tarP.setPointingFactory(reflProduct.getPointingFactory());
         ProductUtils.copyMetadata(aotHiresProduct, tarP);
-        ProductUtils.copyTiePointGrids(sourceProduct, tarP);
-        ProductUtils.copyGeoCoding(sourceProduct, tarP);
+        ProductUtils.copyTiePointGrids(reflProduct, tarP);
+        ProductUtils.copyGeoCoding(reflProduct, tarP);
         ProductUtils.copyFlagBands(reflProduct, tarP);
         ProductUtils.copyFlagBands(aotHiresProduct, tarP);
+        //copyFlagBandsWithMask(reflProduct, tarP);
+        //copyFlagBandsWithMask(aotHiresProduct, tarP);
         Band tarBand;
         String bname;
         if (copyToaRadBands){
-            for (Band b : sourceProduct.getBands()){
+            for (Band b : reflProduct.getBands()){
                 bname = b.getName();
                 if (b.getSpectralWavelength() > 0){
-                    tarBand = ProductUtils.copyBand(bname, sourceProduct, tarP);
+                    tarBand = ProductUtils.copyBand(bname, reflProduct, tarP);
                     tarBand.setSourceImage(b.getSourceImage());
                 }
             }
@@ -170,6 +181,15 @@ public class GaMasterOp  extends Operator {
             tarBand.setSourceImage(b.getSourceImage());
         }
         return tarP;
+    }
+
+    private void copyFlagBandsWithMask(Product sourceProduct, Product targetProduct) {
+        ProductUtils.copyFlagBands(sourceProduct, targetProduct);
+        Mask mask;
+        for (int i=0; i<sourceProduct.getMaskGroup().getNodeCount(); i++){
+            mask = sourceProduct.getMaskGroup().get(i);
+            targetProduct.getMaskGroup().add(mask);
+        }
     }
 
     /**

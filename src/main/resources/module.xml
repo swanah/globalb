@@ -2,7 +2,7 @@
     <manifestVersion>1.0.0</manifestVersion>
     <symbolicName>beam-globalbedo-aerosol</symbolicName>
     <name>BEAM GlobAlbedo Aerosol</name>
-    <version>1.1</version>
+    <version>1.2</version>
 
     <!-- TODO - As needed, adapt metadata elements here -->
     <description>BEAM GlobAlbedo Aerosol</description>
@@ -56,21 +56,32 @@
         <action>
             <class>org.esa.beam.visat.actions.DefaultOperatorAction</class>
             <parent>globalb</parent>
-            <id>internalAerosolOp2</id>
-            <helpId>aerosol</helpId>
-            <operatorName>ga.AerosolOp2</operatorName>
-            <text>AerosolOp...</text>
-            <dialogTitle>AerosolOp</dialogTitle>
-            <targetProductNameSuffix>_AerosolOp</targetProductNameSuffix>
-        </action>
-        <action>
-            <class>org.esa.beam.visat.actions.DefaultOperatorAction</class>
-            <parent>globalb</parent>
             <id>MainAerosolOp</id>
             <helpId>master</helpId>
             <operatorName>ga.MasterOp</operatorName>
             <text>AerosolMasterOp...</text>
             <dialogTitle>AerosolMasterOp</dialogTitle>
+            <targetProductNameSuffix>_AerosolOp</targetProductNameSuffix>
+        </action>
+<!--
+        <action>
+            <class>org.esa.beam.visat.actions.DefaultOperatorAction</class>
+            <parent>globalb</parent>
+            <id>SzaSubsetOp</id>
+            <helpId>szasubset</helpId>
+            <operatorName>ga.SzaSubsetOp</operatorName>
+            <text>szasubsetOp...</text>
+            <dialogTitle>SzaSubsetOp</dialogTitle>
+            <targetProductNameSuffix>_szasub</targetProductNameSuffix>
+        </action>
+        <action>
+            <class>org.esa.beam.visat.actions.DefaultOperatorAction</class>
+            <parent>globalb</parent>
+            <id>internalAerosolOp2</id>
+            <helpId>aerosol</helpId>
+            <operatorName>ga.AerosolOp2</operatorName>
+            <text>AerosolOp...</text>
+            <dialogTitle>AerosolOp</dialogTitle>
             <targetProductNameSuffix>_AerosolOp</targetProductNameSuffix>
         </action>
         <action>
@@ -103,6 +114,7 @@
             <dialogTitle>GapFillingOp</dialogTitle>
             <targetProductNameSuffix>_fill</targetProductNameSuffix>
         </action>
+-->
 
     </extension>
 

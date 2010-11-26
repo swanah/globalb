@@ -96,10 +96,11 @@ public class UpSclOp extends Operator {
         ProductUtils.copyTiePointGrids(hiresProduct, targetProduct);
         ProductUtils.copyGeoCoding(hiresProduct, targetProduct);
         copyBands(lowresProduct, targetProduct);
-        Mask mask;
+        Mask lowresMask;
+        Mask hiresMask;
         for (int i=0; i<lowresProduct.getMaskGroup().getNodeCount(); i++){
-            mask = lowresProduct.getMaskGroup().get(i);
-            targetProduct.getMaskGroup().add(mask);
+            lowresMask = lowresProduct.getMaskGroup().get(i);
+            targetProduct.getMaskGroup().add(lowresMask);
         }
 
 
@@ -116,6 +117,7 @@ public class UpSclOp extends Operator {
         Tile validTile;
 
         final Rectangle srcRec = calcSourceRectangle(tarRec);
+
         sourceBand = lowresProduct.getBand(targetBandName);
         sourceTile = getSourceTile(sourceBand, srcRec, ProgressMonitor.NULL);
         validTile = getSourceTile(validBand, tarRec, ProgressMonitor.NULL);
@@ -124,7 +126,7 @@ public class UpSclOp extends Operator {
             upscaleTileBilinear(sourceTile, validTile, targetTile, tarRec, ProgressMonitor.NULL);
         }
         else {
-            upscaleTileCopy(sourceTile, validTile, targetTile, tarRec, ProgressMonitor.NULL);
+            upscaleFlagCopy(sourceTile, targetTile, tarRec, ProgressMonitor.NULL);
         }
     }
 
@@ -239,26 +241,23 @@ public class UpSclOp extends Operator {
         }
     }
 
-    private void upscaleTileCopy(Tile srcTile, Tile validTile, Tile tarTile, Rectangle tarRec, ProgressMonitor pm) {
+    private void upscaleFlagCopy(Tile srcTile, Tile tarTile, Rectangle tarRec, ProgressMonitor pm) {
 
         final int tarX = tarRec.x;
         final int tarY = tarRec.y;
         final int tarWidth = tarRec.width;
         final int tarHeight = tarRec.height;
-        float erg;
-        float noData = (float) tarTile.getRasterDataNode().getGeophysicalNoDataValue();
 
         for (int iTarY = tarY; iTarY < tarY + tarHeight; iTarY++) {
-            int iSrcY = iTarY / scale;
-            if (iSrcY >= srcTile.getHeight()) iSrcY = srcTile.getHeight() - 1;
+            // int iSrcY = (iTarY - offset) / scale;
+            int iSrcY = (iTarY) / scale;
+            if (iSrcY >= srcTile.getMaxY()) iSrcY = srcTile.getMaxY() - 1;
             for (int iTarX = tarX; iTarX < tarX + tarWidth; iTarX++) {
-                if (pm.isCanceled()) {
-                    break;
-                }
-                int iSrcX = iTarX / scale;
-                if (iSrcY >= srcTile.getWidth()) iSrcY = srcTile.getWidth() - 1;
-                erg = (validTile.getSampleBoolean(iTarX, iTarY)) ? srcTile.getSampleFloat(iSrcX, iSrcY) : noData;
-                tarTile.setSample(iTarX, iTarY, erg);
+                checkForCancellation(pm);
+                // int iSrcX = (iTarX - offset) / scale;
+                int iSrcX = (iTarX) / scale;
+                if (iSrcX >= srcTile.getMaxX()) iSrcX = srcTile.getMaxX() - 1;
+                tarTile.setSample(iTarX, iTarY, srcTile.getSampleInt(iSrcX, iSrcY));
             }
         }
     }

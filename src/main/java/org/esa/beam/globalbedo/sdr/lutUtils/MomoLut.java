@@ -220,6 +220,25 @@ public class MomoLut implements AerosolLookupTable{
         return limits;
     }
 
+    public double getMaxAOT(InputPixelData ipd){
+        final float geomAMF = (float) ((1 / Math.cos(Math.toRadians(ipd.geom.sza))
+                                        + 1 / Math.cos(Math.toRadians(ipd.geom.vza))));
+        final double[] gasT = getGasTransmission(geomAMF, (float)ipd.wvCol, (float)(ipd.o3du/1000));
+        final double toa = ipd.toaReflec[0] / gasT[0];
+        int iAot = 0;
+        double[][] lutValues = sdrLut.getValues(ipd.surfPressure, ipd.geom.vza, ipd.geom.sza, ipd.geom.razi, aot[iAot]);
+        double rhoPath1 = lutValues[0][0] * Math.PI / Math.cos(Math.toRadians(ipd.geom.sza));
+        double rhoPath0 = rhoPath1;
+        while (iAot < nAot-1 && rhoPath1 < toa) {
+            rhoPath0 = rhoPath1;
+            iAot++;
+            lutValues = sdrLut.getValues(ipd.surfPressure, ipd.geom.vza, ipd.geom.sza, ipd.geom.razi, aot[iAot]);
+            rhoPath1 = lutValues[0][0] * Math.PI / Math.cos(Math.toRadians(ipd.geom.sza));
+        }
+        if (iAot == 0) return 0.005;
+        if (rhoPath1 < toa) return 2.0;
+        return aot[iAot-1] + (aot[iAot] - aot[iAot-1]) * (toa - rhoPath0) / (rhoPath1 - rhoPath0);
+    }
 
     // private methods
     private int calcPosition(int[] indices, int[] sizes) {

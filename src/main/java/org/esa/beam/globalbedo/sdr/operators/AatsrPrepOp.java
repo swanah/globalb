@@ -48,54 +48,68 @@ public class AatsrPrepOp extends Operator {
         final boolean needElevation = (!sourceProduct.containsBand(instrC.getElevationBandName()));
         final boolean needSurfacePres = (!sourceProduct.containsBand(instrC.getSurfPressureName("AATSR")));
 
-        // recalibrate AATSR
-        Product recalProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(RecalibrateAATSRReflectancesOp.class), GPF.NO_PARAMS, sourceProduct);
+
+        //general SzaSubset to less 70°
+        Map<String,Object> szaSubParam = new HashMap<String, Object>(3);
+        szaSubParam.put("szaBandName", "sun_elev_nadir");
+        szaSubParam.put("hasSolarElevation", true);
+        szaSubParam.put("szaLimit", 69.99);
+        Product szaSubProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(SzaSubsetOp.class), szaSubParam, sourceProduct);
 
         // subset might have set ptype to null, thus:
-        if (sourceProduct.getDescription() == null) recalProduct.setDescription("aatsr product");
+        if (szaSubProduct.getDescription() == null) szaSubProduct.setDescription("aatsr product");
+
+        // recalibrate AATSR
+        Product recalProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(RecalibrateAATSRReflectancesOp.class), GPF.NO_PARAMS, szaSubProduct);
 
         // setup target product primarily as copy of source product
-        final int rasterWidth = sourceProduct.getSceneRasterWidth();
-        final int rasterHeight = sourceProduct.getSceneRasterHeight();
-        targetProduct = new Product(sourceProduct.getName(),
-                                    sourceProduct.getProductType(),
+        final int rasterWidth = szaSubProduct.getSceneRasterWidth();
+        final int rasterHeight = szaSubProduct.getSceneRasterHeight();
+        targetProduct = new Product(szaSubProduct.getName(),
+                                    szaSubProduct.getProductType(),
                                     rasterWidth, rasterHeight);
-        targetProduct.setStartTime(sourceProduct.getStartTime());
-        targetProduct.setEndTime(sourceProduct.getEndTime());
-        targetProduct.setPointingFactory(sourceProduct.getPointingFactory());
-        ProductUtils.copyTiePointGrids(sourceProduct, targetProduct);
-        ProductUtils.copyGeoCoding(sourceProduct, targetProduct);
-        ProductUtils.copyFlagBands(sourceProduct, targetProduct);
+        targetProduct.setStartTime(szaSubProduct.getStartTime());
+        targetProduct.setEndTime(szaSubProduct.getEndTime());
+        targetProduct.setPointingFactory(szaSubProduct.getPointingFactory());
+        ProductUtils.copyTiePointGrids(szaSubProduct, targetProduct);
+        ProductUtils.copyGeoCoding(szaSubProduct, targetProduct);
+        ProductUtils.copyFlagBands(szaSubProduct, targetProduct);
         Mask mask;
-        for (int i=0; i<sourceProduct.getMaskGroup().getNodeCount(); i++){
-            mask = sourceProduct.getMaskGroup().get(i);
+        for (int i=0; i<szaSubProduct.getMaskGroup().getNodeCount(); i++){
+            mask = szaSubProduct.getMaskGroup().get(i);
             targetProduct.getMaskGroup().add(mask);
         }
 
-        // create pixel calssification if missing in sourceProduct
+        // create pixel calssification if missing in szaSubProduct
         // and add flag band to targetProduct
-        Product idepixProduct = null;
+        Product idepixNadirProduct = null;
+        Product idepixFwardProduct = null;
         if (needPixelClassif) {
             Map<String, Object> pixelClassParam = new HashMap<String, Object>(4);
             pixelClassParam.put("algorithm", CloudScreeningSelector.GlobAlbedo);
             pixelClassParam.put("gaCopyRadiances", false);
             pixelClassParam.put("gaCopyAnnotations", false);
             pixelClassParam.put("gaComputeFlagsOnly", true);
-            idepixProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(ComputeChainOp.class), pixelClassParam, sourceProduct);
-            ProductUtils.copyFlagBands(idepixProduct, targetProduct);
-            for (int i=0; i<sourceProduct.getMaskGroup().getNodeCount(); i++){
-                mask = sourceProduct.getMaskGroup().get(i);
+            pixelClassParam.put("gaUseAatsrFwardForClouds", false);
+            idepixNadirProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(ComputeChainOp.class), pixelClassParam, szaSubProduct);
+            ProductUtils.copyFlagBands(idepixNadirProduct, targetProduct);
+            for (int i=0; i<szaSubProduct.getMaskGroup().getNodeCount(); i++){
+                mask = szaSubProduct.getMaskGroup().get(i);
                 targetProduct.getMaskGroup().add(mask);
             }
+            pixelClassParam.put("gaUseAatsrFwardForClouds", true);
+            idepixFwardProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(ComputeChainOp.class), pixelClassParam, szaSubProduct);
+            Band tarBand = ProductUtils.copyBand(instrC.getIdepixFlagBandName(), idepixFwardProduct, instrC.getIdepixFwardFlagBandName(), targetProduct);
+            tarBand.setSampleCoding(targetProduct.getFlagCodingGroup().get(instrC.getIdepixFlagBandName()));
         }
 
-        // create elevation product if band is missing in sourceProduct
+        // create elevation product if band is missing in szaSubProduct
         Product elevProduct = null;
         if (needElevation){
-            elevProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(CreateElevationBandOp.class), GPF.NO_PARAMS, sourceProduct);
+            elevProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(CreateElevationBandOp.class), GPF.NO_PARAMS, szaSubProduct);
         }
 
-        // create surface pressure estimate product if band is missing in sourceProduct
+        // create surface pressure estimate product if band is missing in szaSubProduct
         VirtualBand surfPresBand = null;
         if (needSurfacePres){
             String presExpr = "(1013.25 * exp(-elevation/8400))";
@@ -109,10 +123,10 @@ public class AatsrPrepOp extends Operator {
         }
 
 
-        // copy all non-reflec bands from sourceProduct and
+        // copy all non-reflec bands from szaSubProduct and
         // copy reflectance bands from recalProduct
         Band tarBand;
-        for (Band srcBand : sourceProduct.getBands()){
+        for (Band srcBand : szaSubProduct.getBands()){
             String srcName = srcBand.getName();
             if (srcBand.isFlagBand()){
                 tarBand = targetProduct.getBand(srcName);
@@ -124,7 +138,7 @@ public class AatsrPrepOp extends Operator {
                 tarBand.setSourceImage(recalBand.getSourceImage());
             }
             else {
-                tarBand = ProductUtils.copyBand(srcName, sourceProduct, targetProduct);
+                tarBand = ProductUtils.copyBand(srcName, szaSubProduct, targetProduct);
                 tarBand.setSourceImage(srcBand.getSourceImage());
 
             }
@@ -132,10 +146,16 @@ public class AatsrPrepOp extends Operator {
 
         // add idepix flag band data if needed
         if (needPixelClassif){
-            Guardian.assertNotNull("idepixProduct", idepixProduct);
-            Band srcBand = idepixProduct.getBand(instrC.getIdepixFlagBandName());
+            Guardian.assertNotNull("idepixProduct", idepixNadirProduct);
+            Band srcBand = idepixNadirProduct.getBand(instrC.getIdepixFlagBandName());
             Guardian.assertNotNull("idepix Band", srcBand);
             tarBand = targetProduct.getBand(srcBand.getName());
+            tarBand.setSourceImage(srcBand.getSourceImage());
+
+            Guardian.assertNotNull("idepixProduct", idepixFwardProduct);
+            srcBand = idepixFwardProduct.getBand(instrC.getIdepixFlagBandName());
+            Guardian.assertNotNull("idepix Band", srcBand);
+            tarBand = targetProduct.getBand(instrC.getIdepixFwardFlagBandName());
             tarBand.setSourceImage(srcBand.getSourceImage());
         }
 
