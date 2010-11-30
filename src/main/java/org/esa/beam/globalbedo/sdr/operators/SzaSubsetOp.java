@@ -26,6 +26,7 @@ import org.esa.beam.framework.gpf.annotations.Parameter;
 import org.esa.beam.framework.gpf.annotations.SourceProduct;
 import org.esa.beam.framework.gpf.annotations.TargetProduct;
 import org.esa.beam.gpf.operators.standard.SubsetOp;
+import org.esa.beam.util.Guardian;
 
 /**
  *
@@ -55,6 +56,10 @@ public class SzaSubsetOp extends Operator {
     @Override
     public void initialize() throws OperatorException {
         Rectangle region = getSzaRegion();
+        Guardian.assertGreaterThan("szaSubsetRegion.x >= 0", region.x, -1);
+        Guardian.assertGreaterThan("szaSubsetRegion.y >= 0", region.y, -1);
+        Guardian.assertGreaterThan("szaSubsetRegion.width > 0", region.width, 0);
+        Guardian.assertGreaterThan("szaSubsetRegion.height > 0", region.height, 0);
         subsetReader = new ProductSubsetBuilder();
         subsetDef = new ProductSubsetDef();
         subsetDef.addNodeNames(sourceProduct.getTiePointGridNames());
@@ -102,32 +107,22 @@ public class SzaSubsetOp extends Operator {
         } catch (IOException ex) {
             throw new OperatorException(ex);
         }
-        int start = srcHeight / 2;
-        int end = srcHeight / 2;
-        boolean startInside = true;
-        boolean endInside = true;
+        int start = 0;
+        int end = srcHeight-1;
         if (hasSolarElevation) {
-            do {
-                if (startInside) {
-                    start--;
-                }
-                if (endInside) {
-                    end++;
-                }
-                startInside = (start > 0 && (90 - sza0[start]) < szaLimit && (90 - sza1[start]) < szaLimit);
-                endInside = (end < srcHeight && (90 - sza0[end]) < szaLimit && (90 - sza1[end]) < szaLimit);
-            } while (startInside || endInside);
+            while (start < srcHeight-1 && (90 - sza0[start]) > szaLimit && (90 - sza1[start]) > szaLimit){
+                start++;
+            }
+            while (end > start && (90 - sza0[end]) > szaLimit && (90 - sza1[end]) > szaLimit){
+                end--;
+            }
         } else {
-            do {
-                if (startInside) {
-                    start--;
-                }
-                if (endInside) {
-                    end++;
-                }
-                startInside = (start > 0 && sza0[start] < szaLimit && sza1[start] < szaLimit);
-                endInside = (end < srcHeight && sza0[end] < szaLimit && sza1[end] < szaLimit);
-            } while (startInside || endInside);
+            while (start < srcHeight-1 && (sza0[start]) > szaLimit && (sza1[start]) > szaLimit){
+                start++;
+            }
+            while (end > start && (sza0[end]) > szaLimit && (sza1[end]) > szaLimit){
+                end--;
+            }
         }
         Rectangle region = new Rectangle(0, start, srcWidth, end - start + 1);
         return region;
