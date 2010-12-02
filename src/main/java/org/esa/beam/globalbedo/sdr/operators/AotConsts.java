@@ -26,7 +26,8 @@ public enum AotConsts {
     public final double offset;
     
     private AotConsts(String name, String description, String unit, int type,
-                      double noDataValue, boolean noDataUsed, double scale, double offset) {
+                      double noDataValue, boolean noDataUsed,
+                      double scale, double offset) {
         this.name = name;
         this.description = description;
         this.unit = unit;

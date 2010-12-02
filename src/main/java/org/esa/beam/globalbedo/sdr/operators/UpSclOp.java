@@ -82,7 +82,7 @@ public class UpSclOp extends Operator {
         offset = scale/2;
         InstrumentConsts instrC = InstrumentConsts.getInstance();
         String instrument = instrC.getInstrument(hiresProduct);
-        final String validExpression = instrC.getValidExpression(instrument);
+        final String validExpression = instrC.getAotExpression(instrument);
         final BandMathsOp validBandOp = BandMathsOp.createBooleanExpressionBand(validExpression, hiresProduct);
         validBand = validBandOp.getTargetProduct().getBandAt(0);
 

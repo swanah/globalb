@@ -90,7 +90,7 @@
         <dependency>
             <groupId>org.esa.beam</groupId>
             <artifactId>beam-idepix</artifactId>
-            <version>1.2_20101029</version>
+            <version>1.2_20101117</version>
         </dependency>
     </dependencies>
 

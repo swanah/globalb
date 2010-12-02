@@ -71,6 +71,7 @@ public class AatsrPrepOp extends Operator {
         targetProduct.setStartTime(szaSubProduct.getStartTime());
         targetProduct.setEndTime(szaSubProduct.getEndTime());
         targetProduct.setPointingFactory(szaSubProduct.getPointingFactory());
+        ProductUtils.copyMetadata(szaSubProduct, targetProduct);
         ProductUtils.copyTiePointGrids(szaSubProduct, targetProduct);
         ProductUtils.copyGeoCoding(szaSubProduct, targetProduct);
         ProductUtils.copyFlagBands(szaSubProduct, targetProduct);

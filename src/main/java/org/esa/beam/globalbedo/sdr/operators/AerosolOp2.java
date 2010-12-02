@@ -268,8 +268,11 @@ public class AerosolOp2 extends Operator {
 
     private void createTargetProductBands() {
         Band targetBand = GaHelper.getInstance().createTargetBand(AotConsts.aot, tarRasterWidth, tarRasterHeight);
+        targetBand.setValidPixelExpression(instrC.getValidExpression(instrument));
         targetProduct.addBand(targetBand);
+
         targetBand = GaHelper.getInstance().createTargetBand(AotConsts.aotErr, tarRasterWidth, tarRasterHeight);
+        targetBand.setValidPixelExpression(instrC.getValidExpression(instrument));
         targetProduct.addBand(targetBand);
 
         if (addFitBands){

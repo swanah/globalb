@@ -114,6 +114,7 @@ public class InstrumentConsts {
     };
     private final double[] aatsrFitWeights = {1.5, 1.0, 1.0, 1.55};
     private final String  aatsrCloudExpr = "!(cloud_flags_nadir.CLOUDY) && !(cloud_flags_fward.CLOUDY)";
+    private final String  aatsrAotValExpr = idepixFlagBandName+".F_CLEAR_LAND || "+idepixFwardFlagBandName+".F_CLEAR_LAND";
     private final String  aatsrValidExpr = "("+idepixFlagBandName+".F_CLEAR_LAND && "+idepixFwardFlagBandName+".F_CLEAR_LAND && "
         + " (90-sun_elev_nadir) < 70 &&"
         + " (90-sun_elev_fward) < 70 &&"
@@ -242,6 +243,10 @@ public class InstrumentConsts {
 
     public String getValidExpression(String instrument) {
         return validExpr.get(instrument);
+    }
+
+    public String getAotExpression(String instrument) {
+        return (instrument.equals("AATSR"))? aatsrAotValExpr : getValidExpression(instrument);
     }
 
     public int getnLutBands(String instrument) {

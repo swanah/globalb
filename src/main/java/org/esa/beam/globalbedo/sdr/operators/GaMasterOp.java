@@ -40,7 +40,7 @@ public class GaMasterOp  extends Operator {
     private Product targetProduct;
     @Parameter(defaultValue="false")
     private boolean copyToaRadBands;
-    @Parameter(defaultValue="false")
+    @Parameter(defaultValue="true")
     private boolean copyToaReflBands;
     @Parameter(defaultValue="false")
     private boolean noFilling;
