@@ -95,7 +95,6 @@ public class GapFillingOp extends Operator {
         float aotPixel;
         float aotErrPixel;
         int flagPixel = 0;
-        float[] fillResult = new float[2];
         for (int y = tarRec.y; y < tarRec.y+tarRec.height; y++){
             for (int x = tarRec.x; x < tarRec.x+tarRec.width; x++){
                 aotPixel = aotTile.getSampleFloat(x, y);
@@ -105,6 +104,7 @@ public class GapFillingOp extends Operator {
                     tarAotErrTile.setSample(x, y, aotErrPixel);
                 }
                 else {
+                    float[] fillResult = new float[2];
                     flagPixel = fillPixel(x, y, aotTile, aotErrTile, noDataVal, fillResult);
                     tarAotTile.setSample(x, y, fillResult[0]);
                     tarAotErrTile.setSample(x, y, fillResult[1]);

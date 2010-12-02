@@ -42,7 +42,7 @@ public class Powell {
      *@exception  IllegalMonitorStateException  Description of Exception
      *@exception  IllegalArgumentException      Description of Exception
      */
-    public void powell(double[] p, double[][] xi, double ftol, MvFunction func)
+    public synchronized void powell(double[] p, double[][] xi, double ftol, MvFunction func)
             throws IllegalMonitorStateException,
             IllegalArgumentException {
 
@@ -109,11 +109,11 @@ public class Powell {
         }
     }
 
-    public double getFmin() {
+    public synchronized double getFmin() {
         return fret;
     }
 
-    public double[] getP() {
+    public synchronized  double[] getP() {
         return pret;
     }
 

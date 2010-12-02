@@ -29,8 +29,9 @@ public class PointRetrieval {
 
 // public methods
 
-    public RetrievalResults runRetrieval(double maxAOT) {
-        final Brent b = new Brent(0.001, 0.5*maxAOT, maxAOT, brentFitFct, 5e-6);
+    public synchronized RetrievalResults runRetrieval(double maxAOT) {
+        final Brent b = new Brent();
+        b.brent(0.001, 0.5*maxAOT, maxAOT, brentFitFct, 5e-6);
         float optAOT = (float) b.getXmin();
         float optErr = (float) b.getFx();
         boolean failed = (optAOT <= 0.01);

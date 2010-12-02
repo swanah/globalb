@@ -47,7 +47,7 @@ public class Brent {
      *@param  tol                        tolerance
      *@exception  IllegalStateException  Description of Exception
      */
-    public void brent(double ax, double bx, double cx, Function fun, double tol) throws IllegalStateException {
+    public synchronized void brent(double ax, double bx, double cx, Function fun, double tol) throws IllegalStateException {
         xmin = Double.NaN;
         double e = 0.0;
         double d = 0.0;
@@ -127,11 +127,11 @@ public class Brent {
         throw new IllegalStateException("Too many iterations in brent");
     }
 
-    public double getXmin() {
+    public synchronized double getXmin() {
         return xmin;
     }
 
-    public double getFx() {
+    public synchronized double getFx() {
         return fx;
     }
 }

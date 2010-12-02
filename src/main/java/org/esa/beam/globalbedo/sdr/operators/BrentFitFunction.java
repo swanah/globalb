@@ -26,7 +26,7 @@ public class BrentFitFunction implements UnivRetrievalFunction {
 
 
     private final int model;
-    public final InputPixelData[] inPixField;
+    private final InputPixelData[] inPixField;
     private final AerosolLookupTable lut;
     private final float llimit;
     private final float penalty;
@@ -58,7 +58,7 @@ public class BrentFitFunction implements UnivRetrievalFunction {
     }
 
     @Override
-    public double f(double tau) {
+    public synchronized double f(double tau) {
         double fmin = 0;
         for (int i=0; i<inPixField.length; i++){
             fmin += fPix(tau, inPixField[i]);
@@ -81,11 +81,11 @@ public class BrentFitFunction implements UnivRetrievalFunction {
         throw new UnsupportedOperationException("Not supported yet.");
     }
 
-    public double getMaxAOT() {
+    public synchronized double getMaxAOT() {
         if (lut instanceof MomoLut){
             int min = 0;
             for (int i=0; i<inPixField.length; i++)
-                if (inPixField[i].toaReflec[0] < inPixField[min].toaReflec[0]) min=i;
+                if (inPixField[i].getToaReflec()[0] < inPixField[min].getToaReflec()[0]) min=i;
             return ((MomoLut) lut).getMaxAOT(inPixField[min]);
         }
         return 2.0;
@@ -96,7 +96,7 @@ public class BrentFitFunction implements UnivRetrievalFunction {
 
     private double fPix(double tau, InputPixelData inPixData){
         lut.getSdrAndDiffuseFrac(inPixData, tau);
-        double fmin = isSdrNegativ(inPixData.surfReflec);
+        double fmin = isSdrNegativ(inPixData.getSurfReflec());
 
         if ( !(fmin > 0) ) {
             double[] p = initStartVector(model);
@@ -105,10 +105,10 @@ public class BrentFitFunction implements UnivRetrievalFunction {
             MvFunction surfModel = null;
             switch (model){
                 case 1:
-                    surfModel = new emodAng(inPixData.diffuseFrac, inPixData.surfReflec, specWeights);
+                    surfModel = new emodAng(inPixData.getDiffuseFrac(), inPixData.getSurfReflec(), specWeights);
                     break;
                 case 2:
-                    surfModel = new emodSpec(specSoil, specVeg, inPixData.surfReflec[0], specWeights);
+                    surfModel = new emodSpec(specSoil, specVeg, inPixData.getSurfReflec()[0], specWeights);
                     break;
                 case 3:
                 default: throw new OperatorException("invalid surface reflectance model");

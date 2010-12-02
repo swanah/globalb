@@ -183,47 +183,61 @@ public class AerosolOp2 extends Operator {
         int width = (int) targetRectangle.getWidth() + x0 - 1;
         int height = (int) targetRectangle.getHeight() + y0 - 1;
 
-        InputPixelData[] inPixField = null;
-        RetrievalResults result = null;
-        BrentFitFunction brentFitFunction = null;
-
         for (int iY=y0; iY <= height; iY++) {
             for (int iX=x0; iX <= width; iX++) {
-
-                // read pixel data and init brent fit
-                if (instrument.equals("AATSR")){
-                    inPixField = readAveragePixel(sourceTiles, sourceNoDataValues, iX, iY, pixelWindow);
-                    if (inPixField != null) {
-                        brentFitFunction = new BrentFitFunction(BrentFitFunction.ANGULAR_MODEL, inPixField, momo, specWeights);
-                    }
-                }
-                else {
-                    inPixField = readDarkestNPixels(sourceTiles, sourceNoDataValues, iX, iY, pixelWindow);
-                    if (inPixField != null) {
-                        brentFitFunction = new BrentFitFunction(BrentFitFunction.SPECTRAL_MODEL, inPixField, momo, specWeights, soilSurfSpec, vegSurfSpec);
-                    }
-                }
-
-                // run retrieval and set target samples
-                if (inPixField != null){
-                    double maxAOT = brentFitFunction.getMaxAOT();
-                    result = new PointRetrieval(brentFitFunction).runRetrieval(maxAOT);
-                    if (! result.retrievalFailed){
-                        setTargetSamples(targetTiles, iX, iY, inPixField[0], result);
-                    }
-                    else {
-                        setInvalidTargetSamples(targetTiles, iX, iY, inPixField[0]);
-                    }
-                }
-                else {
-                    setInvalidTargetSamples(targetTiles, iX, iY);
-                }
+                doPixel(sourceTiles, sourceNoDataValues, iX, iY, targetTiles);
                 if (pm.isCanceled()) return;
             }
             pm.worked(1);
         }
         pm.done();
     }
+
+
+
+    
+    private void doPixel(Map<String, Tile> sourceTiles, Map<String, Double> sourceNoDataValues, int iX, int iY, Map<Band, Tile> targetTiles) {
+        // read pixel data and init brent fit
+        InputPixelData[] inPixField = null;
+        BrentFitFunction brentFitFunction = null;
+        if (instrument.equals("AATSR")) {
+            inPixField = readAveragePixel(sourceTiles, sourceNoDataValues, iX, iY, pixelWindow);
+            if (inPixField != null) {
+                brentFitFunction = new BrentFitFunction(BrentFitFunction.ANGULAR_MODEL, inPixField, momo, specWeights);
+            }
+        } else {
+            inPixField = readDarkestNPixels(sourceTiles, sourceNoDataValues, iX, iY, pixelWindow);
+            if (inPixField != null) {
+                brentFitFunction = new BrentFitFunction(BrentFitFunction.SPECTRAL_MODEL, inPixField, momo, specWeights, soilSurfSpec, vegSurfSpec);
+            }
+        }
+        executeRetrieval(inPixField, brentFitFunction, targetTiles, iX, iY);
+    }
+
+    private void executeRetrieval(InputPixelData[] inPixField, BrentFitFunction brentFitFunction, Map<Band, Tile> targetTiles, int iX, int iY) {
+        // run retrieval and set target samples
+        if (inPixField != null) {
+            RetrievalResults result = blubb1(brentFitFunction);
+            if (!result.isRetrievalFailed()) {
+                setTargetSamples(targetTiles, iX, iY, inPixField[0], result);
+            } else {
+                setInvalidTargetSamples(targetTiles, iX, iY, inPixField[0]);
+            }
+        } else {
+            setInvalidTargetSamples(targetTiles, iX, iY);
+        }
+    }
+
+    private RetrievalResults blubb1(BrentFitFunction brentFitFunction) {
+        final double maxAOT = brentFitFunction.getMaxAOT();
+        final PointRetrieval pR = new PointRetrieval(brentFitFunction);
+        RetrievalResults result = pR.runRetrieval(maxAOT);
+        return result;
+    }
+
+
+
+
 
     private InputPixelData createInPixelData(double[] tileValues) {
         PixelGeometry geomNadir = null;
@@ -268,7 +282,7 @@ public class AerosolOp2 extends Operator {
 
     private void createTargetProductBands() {
         Band targetBand = GaHelper.getInstance().createTargetBand(AotConsts.aot, tarRasterWidth, tarRasterHeight);
-        targetBand.setValidPixelExpression(instrC.getValidExpression(instrument));
+        //targetBand.setValidPixelExpression(instrC.getValidExpression(instrument));
         targetProduct.addBand(targetBand);
 
         targetBand = GaHelper.getInstance().createTargetBand(AotConsts.aotErr, tarRasterWidth, tarRasterHeight);
@@ -401,11 +415,11 @@ public class AerosolOp2 extends Operator {
     }
 
     private void setTargetSamples(Map<Band, Tile> targetTiles, int iX, int iY, InputPixelData ipd, RetrievalResults result) {
-        targetTiles.get(targetProduct.getBand("aot")).setSample(iX, iY, result.optAOT);
-        targetTiles.get(targetProduct.getBand("aot_err")).setSample(iX, iY, result.retrievalErr);
+        targetTiles.get(targetProduct.getBand("aot")).setSample(iX, iY, result.getOptAOT());
+        targetTiles.get(targetProduct.getBand("aot_err")).setSample(iX, iY, result.getRetrievalErr());
         if (addFitBands){
-            targetTiles.get(targetProduct.getBand("fit_err")).setSample(iX, iY, result.optErr);
-            targetTiles.get(targetProduct.getBand("fit_curv")).setSample(iX, iY, result.curvature);
+            targetTiles.get(targetProduct.getBand("fit_err")).setSample(iX, iY, result.getOptErr());
+            targetTiles.get(targetProduct.getBand("fit_curv")).setSample(iX, iY, result.getCurvature());
         }
     }
 
@@ -606,11 +620,11 @@ public class AerosolOp2 extends Operator {
     }
 
     private void printInData(InputPixelData ipd) {
-        for (int i=0;i<15;i++) System.err.printf("%ff, ", ipd.specWvl[i]);
+        for (int i=0;i<15;i++) System.err.printf("%ff, ", ipd.getSpecWvl()[i]);
         System.err.println();
-        for (int i=0;i<15;i++) System.err.printf("%ff, ",ipd.toaReflec[i]);
+        for (int i=0;i<15;i++) System.err.printf("%ff, ",ipd.getToaReflec()[i]);
         System.err.println();
-        System.err.printf("%ff %ff %ff",ipd.geom.sza, ipd.geom.vza, ipd.geom.razi);
+        System.err.printf("%ff %ff %ff",ipd.getGeom().sza, ipd.getGeom().vza, ipd.getGeom().razi);
         System.err.println();
     }
 

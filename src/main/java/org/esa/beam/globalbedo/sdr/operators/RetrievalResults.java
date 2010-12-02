@@ -10,14 +10,14 @@ package org.esa.beam.globalbedo.sdr.operators;
  * @author akheckel
  */
 public class RetrievalResults {
-    final boolean retrievalFailed;
-    final float optAOT;
-    final float optErr;
-    final float retrievalErr;
-    final float curvature;
-    double[] pAtMin;
-    float[] modelSpec;
-    double[] sdr;
+    private final boolean retrievalFailed;
+    private final float optAOT;
+    private final float optErr;
+    private final float retrievalErr;
+    private final float curvature;
+    //double[] pAtMin;
+    //float[] modelSpec;
+    //double[] sdr;
 
     public RetrievalResults() {
         this(false, -1.0f, -1.0f, -1.0f, -1.0f);
@@ -34,4 +34,25 @@ public class RetrievalResults {
         this.retrievalErr = retrievalErr;
         this.curvature = curv;
     }
+
+    public synchronized float getCurvature() {
+        return curvature;
+    }
+
+    public synchronized float getOptAOT() {
+        return optAOT;
+    }
+
+    public synchronized float getOptErr() {
+        return optErr;
+    }
+
+    public synchronized float getRetrievalErr() {
+        return retrievalErr;
+    }
+
+    public synchronized boolean isRetrievalFailed() {
+        return retrievalFailed;
+    }
+
 }

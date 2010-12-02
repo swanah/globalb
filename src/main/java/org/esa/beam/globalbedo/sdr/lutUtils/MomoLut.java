@@ -125,7 +125,7 @@ public class MomoLut implements AerosolLookupTable{
 
     // public methods
     @Override
-    public void getSdrAndDiffuseFrac(InputPixelData inPix, double tau) {
+    public synchronized void getSdrAndDiffuseFrac(InputPixelData inPix, double tau) {
         Guardian.assertEquals("InputPixelData.nSpecWvl", inPix.nSpecWvl, nWvl);
         Guardian.assertNotNull("InputPixelData.diffuseFrac[][]", inPix.diffuseFrac);
         Guardian.assertNotNull("InputPixelData.surfReflec[][]", inPix.surfReflec);
@@ -210,17 +210,7 @@ public class MomoLut implements AerosolLookupTable{
         return valid;
     }
 
-    public Map<DimSelector, LutLimits> getLutLimits(){
-        Map<DimSelector, LutLimits> limits = new HashMap<DimSelector, LutLimits>(5);
-        limits.put(DimSelector.VZA, new LutLimits(vza[0],vza[nVza-1]));
-        limits.put(DimSelector.SZA, new LutLimits(sza[0],sza[nSza-1]));
-        limits.put(DimSelector.AZI, new LutLimits(azi[0],azi[nAzi-1]));
-        limits.put(DimSelector.HSF, new LutLimits(hsf[0],hsf[nHsf-1]));
-        limits.put(DimSelector.AOT, new LutLimits(aot[0],aot[nAot-1]));
-        return limits;
-    }
-
-    public double getMaxAOT(InputPixelData ipd){
+    public synchronized double getMaxAOT(InputPixelData ipd){
         final float geomAMF = (float) ((1 / Math.cos(Math.toRadians(ipd.geom.sza))
                                         + 1 / Math.cos(Math.toRadians(ipd.geom.vza))));
         final double[] gasT = getGasTransmission(geomAMF, (float)ipd.wvCol, (float)(ipd.o3du/1000));
@@ -241,6 +231,16 @@ public class MomoLut implements AerosolLookupTable{
     }
 
     // private methods
+    private Map<DimSelector, LutLimits> getLutLimits(){
+        Map<DimSelector, LutLimits> limits = new HashMap<DimSelector, LutLimits>(5);
+        limits.put(DimSelector.VZA, new LutLimits(vza[0],vza[nVza-1]));
+        limits.put(DimSelector.SZA, new LutLimits(sza[0],sza[nSza-1]));
+        limits.put(DimSelector.AZI, new LutLimits(azi[0],azi[nAzi-1]));
+        limits.put(DimSelector.HSF, new LutLimits(hsf[0],hsf[nHsf-1]));
+        limits.put(DimSelector.AOT, new LutLimits(aot[0],aot[nAot-1]));
+        return limits;
+    }
+
     private int calcPosition(int[] indices, int[] sizes) {
         //old (((((iHsf*nVza + iVza)* nSza + iSza)* nAzi + iAzi)* nWvl + iWvl)* nAot + iAot)* nParameter + iPar
         // new version to store in MatrixLut
@@ -252,7 +252,7 @@ public class MomoLut implements AerosolLookupTable{
         return pos;
     }
 
-    public float[][] getDimensions() {
+    private float[][] getDimensions() {
         return new float[][]{hsf, vza, sza, azi, aot};
     }
 

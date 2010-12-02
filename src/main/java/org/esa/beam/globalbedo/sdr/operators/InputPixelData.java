@@ -52,6 +52,50 @@ public class InputPixelData {
         this.diffuseFrac = new double[2][nSpecWvl];
     }
 
+    public synchronized double[][] getDiffuseFrac() {
+        return diffuseFrac;
+    }
+
+    public synchronized PixelGeometry getGeom() {
+        return geom;
+    }
+
+    public synchronized PixelGeometry getGeomFward() {
+        return geomFward;
+    }
+
+    public synchronized int getnSpecWvl() {
+        return nSpecWvl;
+    }
+
+    public synchronized double getO3du() {
+        return o3du;
+    }
+
+    public synchronized float[] getSpecWvl() {
+        return specWvl;
+    }
+
+    public synchronized double getSurfPressure() {
+        return surfPressure;
+    }
+
+    public synchronized double[][] getSurfReflec() {
+        return surfReflec;
+    }
+
+    public synchronized double[] getToaReflec() {
+        return toaReflec;
+    }
+
+    public synchronized double[] getToaReflecFward() {
+        return toaReflecFward;
+    }
+
+    public synchronized double getWvCol() {
+        return wvCol;
+    }
+
     private double[] float2Double(float[] f) {
         double[] d = new double[f.length];
         for (int i=0; i<f.length; i++) d[i] = (double) f[i];
