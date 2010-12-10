@@ -47,6 +47,8 @@ public class GaMasterOp  extends Operator {
     @Parameter(defaultValue="false")
     private boolean noUpscaling;
 /*
+    @Parameter(defaultValue="false")
+    private boolean tc1G;
     @Parameter(defaultValue="true")
     private boolean retrieveAOT = true;
     @Parameter(defaultValue="false")
@@ -62,6 +64,7 @@ public class GaMasterOp  extends Operator {
 
     @Override
     public void initialize() throws OperatorException {
+        //if (tc1G) org.esa.beam.util.jai.JAIUtils.setDefaultTileCacheCapacity(1024);
         int npix=1;
         //int tarTileWidth = Math.min(targetProduct.getSceneRasterWidth(), npix * 51 * scale);
         Dimension fillTS = new Dimension(npix, npix);

@@ -45,6 +45,9 @@
     <dependency>
         <module>beam-meris-sdr</module>
     </dependency>
+    <dependency>
+        <module>beam-idepix</module>
+    </dependency>
 
     <extension point="beam-ui:actions">
         <action>

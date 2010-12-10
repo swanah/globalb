@@ -35,6 +35,10 @@ import org.esa.beam.util.math.VectorLookupTable;
  *  4 - ratio diff / total downward radiation
  *  5 - ratio diff / total upward radiation
  *
+ *  Surface pressure values outside the LUT range are allowed
+ *    the routines rely on the feature of LookupTable class that values
+ *    outside the range are treated as equal to the highest or lowest values.
+ *
  * @author akheckel
  */
 public class MomoLut implements AerosolLookupTable{
@@ -204,9 +208,9 @@ public class MomoLut implements AerosolLookupTable{
             && (ipd.geom.sza >= lutLimits.get(DimSelector.SZA).min)
             && (ipd.geom.sza <= lutLimits.get(DimSelector.SZA).max)
             && (ipd.geom.razi >= lutLimits.get(DimSelector.AZI).min)
-            && (ipd.geom.razi <= lutLimits.get(DimSelector.AZI).max)
-            && (ipd.surfPressure >= lutLimits.get(DimSelector.HSF).min)
-            && (ipd.surfPressure <= lutLimits.get(DimSelector.HSF).max);
+            && (ipd.geom.razi <= lutLimits.get(DimSelector.AZI).max);
+            //&& (ipd.surfPressure >= lutLimits.get(DimSelector.HSF).min)
+            //&& (ipd.surfPressure <= lutLimits.get(DimSelector.HSF).max);
         return valid;
     }
 
