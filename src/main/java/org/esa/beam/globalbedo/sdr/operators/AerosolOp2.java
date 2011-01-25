@@ -60,7 +60,7 @@ import org.esa.beam.util.math.RsMathUtils;
 @OperatorMetadata(alias = "ga.AerosolOp2",
                   description = "Computes aerosol optical thickness",
                   authors = "Andreas Heckel",
-                  version = "1.1",
+                  version = "1.1.1",
                   copyright = "(C) 2010 by University Swansea (a.heckel@swansea.ac.uk)")
 public class AerosolOp2 extends Operator {
 
@@ -383,14 +383,20 @@ public class AerosolOp2 extends Operator {
         double[] sumVal = new double[sourceTiles.size()];
         for (int k=0; k<sumVal.length; k++) sumVal[k] = 0;
 
+        int nValid = 0;
         int xOffset = iX*pixelWindow.width + pixelWindow.x;
         int yOffset = iY*pixelWindow.height + pixelWindow.y;
         for (int y = yOffset; y < yOffset+pixelWindow.height; y++){
             for (int x = xOffset; x < xOffset+pixelWindow.width; x++){
                 valid = sourceTiles.get(validName).getSampleBoolean(x, y);
                 ndviArr[(y-yOffset)*pixelWindow.width+(x-xOffset)]  = (valid) ? sourceTiles.get(ndviName).getSampleFloat(x, y) : -1;
+                if (valid) nValid++;
             }
         }
+        
+        // return null if not enough valid pixels
+        if (nValid < 0.95*pixelWindow.width*pixelWindow.height) return null;
+        
         Arrays.sort(ndviArr);
         if (ndviArr[ndviArr.length-1-NPixel] > ndviTheshold){
             for (int y = yOffset; y < yOffset+pixelWindow.height; y++){
@@ -406,7 +412,7 @@ public class AerosolOp2 extends Operator {
                     }
                 }
             }
-            if (inPixelList.size() > 0) {
+            if (inPixelList.size() > 3) {
                 inPixField = new InputPixelData[inPixelList.size()];
                 inPixelList.toArray(inPixField);
             }
