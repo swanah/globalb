@@ -62,7 +62,7 @@ public class GaMasterOp  extends Operator {
     private int vegSpecId;
     @Parameter(defaultValue="9")
     private int scale;
-    @Parameter(defaultValue="0.2")
+    @Parameter(defaultValue="0.3")
     private float ndviThr;
     private String instrument;
 
