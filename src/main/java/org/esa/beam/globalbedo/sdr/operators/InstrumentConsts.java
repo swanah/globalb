@@ -63,7 +63,11 @@ public class InstrumentConsts {
 //                                             0.05f, 0.05f, 0.05f, 0.05f, 0.05f};
     private final double[] merisFitWeights = {1.0, 1.0, 1.0, 1.0, 0.2, 1.0, 1.0, 1.0,
                                              0.5, 0.5, 0.0, 0.5, 0.5, 0.5, 0.0};
-    private final String merisValidExpr = "(!l1_flags.INVALID && "+idepixFlagBandName+".F_CLEAR_LAND)";
+    private final String merisValidExpr = "(!l1_flags.INVALID "
+            + " &&  " + idepixFlagBandName+".F_LAND "
+            + " && !" + idepixFlagBandName+".F_CLEAR_SNOW "
+            + " && !" + idepixFlagBandName+".F_CLOUD_BUFFER "
+            + " && ("+EnvisatConstants.MERIS_SUN_ZENITH_DS_NAME+"<70))";
     private final int merisNLutBands = 15;
     private final String merisSurfPressureName = "surfPressEstimate";
     private final String merisOzoneName = "ozone";
@@ -77,11 +81,12 @@ public class InstrumentConsts {
     private final String[] vgtReflectanceNames = {"B0", "B2", "B3", "MIR"};
     private final String[] vgtGeomNames = {"SZA", "SAA", "VZA", "VAA"};
     private final double[] vgtFitWeights = {1.0, 1.0, 0.5, 0.1};
-    //private final String  vgtCloudExpr = "!(SM.CLOUD_1 ||SM.CLOUD_2 || SM.ICE_SNOW)";
-    private final String  vgtCloudExpr = "!("+idepixFlagBandName+".F_CLOUD)";
-    private final String  vgtValidExpr = "(SM.B0_GOOD && SM.B2_GOOD && SM.B3_GOOD && SM.LAND && "+idepixFlagBandName+".F_CLEAR_LAND && (SZA<70))";
-    //private final String  vgtValidExpr = "(SM.B0_GOOD && SM.B2_GOOD && SM.B3_GOOD && SM.MIR_GOOD && SM.LAND && cloud_classif_flags.F_LAND && " + vgtCloudExpr + ")";
-    //private final String  vgtValidExpr = "(SM.B0_GOOD && SM.B2_GOOD && SM.B3_GOOD && SM.MIR_GOOD && SM.LAND && " + vgtCloudExpr + ")";
+    //private final double[] vgtFitWeights = {1.0, 1.0, 0.5, 0.0};
+    private final String  vgtValidExpr = "(SM.B0_GOOD && SM.B2_GOOD && SM.B3_GOOD && SM.LAND "
+            + " &&  " + idepixFlagBandName+".F_LAND "
+            + " && !" + idepixFlagBandName+".F_CLEAR_SNOW "
+            + " && !" + idepixFlagBandName+".F_CLOUD_BUFFER "
+            + " && (SZA<70)) ";
     private final int vgtNLutBands = 4;
     private final String vgtSurfPressureName = "surfPressEstimate";
     private final String vgtOzoneName = "OG";
@@ -113,20 +118,21 @@ public class InstrumentConsts {
         EnvisatConstants.AATSR_VIEW_AZIMUTH_FWARD_DS_NAME
     };
     private final double[] aatsrFitWeights = {1.5, 1.0, 1.0, 1.55};
-    private final String  aatsrCloudExpr = "!(cloud_flags_nadir.CLOUDY) && !(cloud_flags_fward.CLOUDY)";
     private final String  aatsrAotValExpr = idepixFlagBandName+".F_CLEAR_LAND || "+idepixFwardFlagBandName+".F_CLEAR_LAND";
-    private final String  aatsrValidExpr = "("+idepixFlagBandName+".F_CLEAR_LAND && "+idepixFwardFlagBandName+".F_CLEAR_LAND && "
-        + " (90-sun_elev_nadir) < 70 &&"
-        + " (90-sun_elev_fward) < 70 &&"
-        + " reflec_nadir_0550 >= 0 &&"
-        + " reflec_nadir_0670 >= 0 &&"
-        + " reflec_nadir_0870 >= 0 &&"
-        + " reflec_nadir_1600 >= 0 &&"
-        + " reflec_fward_0550 >= 0 &&"
-        + " reflec_fward_0670 >= 0 &&"
-        + " reflec_fward_0870 >= 0 &&"
-        + " reflec_fward_1600 >= 0 )";
-        //+ aatsrCloudExpr + ")";
+    private final String aatsrCldFreeExpr = " !"+idepixFlagBandName+".F_CLOUD_BUFFER && !"+idepixFwardFlagBandName+".F_CLOUD_BUFFER ";
+    private final String  aatsrValidExpr = "("+idepixFlagBandName+".F_LAND && "+ aatsrCldFreeExpr
+        + " && !"+idepixFlagBandName+".F_CLEAR_SNOW"
+        + " && !"+idepixFwardFlagBandName+".F_CLEAR_SNOW"
+        + " && (90-sun_elev_nadir) < 70"
+        + " && (90-sun_elev_fward) < 70"
+        + " && reflec_nadir_0550 >= 0"
+        + " && reflec_nadir_0670 >= 0"
+        + " && reflec_nadir_0870 >= 0"
+        + " && reflec_nadir_1600 >= 0"
+        + " && reflec_fward_0550 >= 0"
+        + " && reflec_fward_0670 >= 0"
+        + " && reflec_fward_0870 >= 0"
+        + " && reflec_fward_1600 >= 0 )";
     private final int     aatsrNLutBands = 4;
     private final String  aatsrSurfPressureName = "surfPressEstimate";
     private final String  aatsrOzoneName = "ozoneConst";
@@ -367,6 +373,13 @@ public class InstrumentConsts {
         if (bname.equals("WVG")) return true;
 
         return false;
+    }
+
+    String getNirName(String instrument) {
+        if (instrument.equals("MERIS")) return "reflectance_13";
+        if (instrument.equals("VGT"))   return "B3";
+        if (instrument.equals("AATSR")) return "reflec_nadir_0870";
+        return "";
     }
 
 }

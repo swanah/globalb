@@ -11,6 +11,9 @@ import java.util.Map;
 import javax.media.jai.BorderExtender;
 import org.esa.beam.framework.datamodel.Band;
 import org.esa.beam.framework.datamodel.FlagCoding;
+import org.esa.beam.framework.datamodel.GeoCoding;
+import org.esa.beam.framework.datamodel.GeoPos;
+import org.esa.beam.framework.datamodel.PixelPos;
 import org.esa.beam.framework.datamodel.Product;
 import org.esa.beam.framework.gpf.Operator;
 import org.esa.beam.framework.gpf.OperatorException;
@@ -44,16 +47,14 @@ public class GapFillingOp extends Operator {
     private int rasterHeight;
     private int rasterWidth;
     private int climDist;
-    private double climAot;
-    private int climErr;
+    private double climErr;
 
 
     @Override
     public void initialize() throws OperatorException {
         off = 25;
         box = off*2;
-        climAot = 0.07;
-        climErr = 2;
+        climErr = 0.3;
         climDist = 10;
         f_invalid = 0;
         f_interp = 1;
@@ -79,6 +80,10 @@ public class GapFillingOp extends Operator {
     @Override
     public void computeTileStack(Map<Band, Tile> targetTiles, Rectangle tarRec, ProgressMonitor pm) throws OperatorException {
         Rectangle srcRec = new Rectangle(tarRec.x-off, tarRec.y-off, tarRec.width+box, tarRec.height+box);
+        Tile latTile = getSourceTile(aotProduct.getBand("latitude"),
+                                     srcRec,
+                                     BorderExtender.createInstance(BorderExtender.BORDER_ZERO),
+                                     ProgressMonitor.NULL);
         Tile aotTile = getSourceTile(aotProduct.getBand(AotConsts.aot.name),
                                      srcRec,
                                      BorderExtender.createInstance(BorderExtender.BORDER_ZERO),
@@ -97,6 +102,9 @@ public class GapFillingOp extends Operator {
         int flagPixel = 0;
         for (int y = tarRec.y; y < tarRec.y+tarRec.height; y++){
             for (int x = tarRec.x; x < tarRec.x+tarRec.width; x++){
+                
+                double climAot = calcClimAot(latTile.getSampleFloat(x, y));
+
                 aotPixel = aotTile.getSampleFloat(x, y);
                 aotErrPixel = aotErrTile.getSampleFloat(x, y);
                 if (Double.compare(noDataVal, aotPixel) != 0){
@@ -105,7 +113,7 @@ public class GapFillingOp extends Operator {
                 }
                 else {
                     float[] fillResult = new float[2];
-                    flagPixel = fillPixel(x, y, aotTile, aotErrTile, noDataVal, fillResult);
+                    flagPixel = fillPixel(x, y, aotTile, aotErrTile, climAot, noDataVal, fillResult);
                     tarAotTile.setSample(x, y, fillResult[0]);
                     tarAotErrTile.setSample(x, y, fillResult[1]);
                     tarAotFlagsTile.setSample(x, y, flagPixel);
@@ -165,7 +173,7 @@ public class GapFillingOp extends Operator {
         return 1 / (Math.pow(Math.pow(i, 2) + Math.pow(j, 2), power/2) + 1.0E-5);
     }
 
-    private int fillPixel(int x, int y, Tile aotTile, Tile aotErrTile, double noDataValue, float[] fillResult) {
+    private int fillPixel(int x, int y, Tile aotTile, Tile aotErrTile, double climAot, double noDataValue, float[] fillResult) {
         double n0 = invDistanceWeight(climDist, 0, 4);
         double n = n0;
         double sum = climAot * n;
@@ -199,6 +207,12 @@ public class GapFillingOp extends Operator {
             flag = BitSetter.setFlag(flag, f_invalid);
         }
         return flag;
+    }
+
+    private double calcClimAot(float lat) {
+        double latR = Math.toRadians(lat);
+        return 0.2 * ( Math.cos(latR) - 0.25 )
+               * Math.pow( Math.sin( latR + Math.PI/2 ), 3 ) + 0.05;
     }
 
     /**

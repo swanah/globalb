@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.esa.beam.globalbedo.sdr</groupId>
     <artifactId>GAaerosol</artifactId>
-    <version>1.2.2</version>
+    <version>1.2.3</version>
     <name>BEAM GlobAlbedo Aerosol</name>
     <description></description>
     <packaging>jar</packaging>
@@ -38,7 +38,7 @@
         <dependency>
             <groupId>org.esa.beam</groupId>
             <artifactId>beam-gpf</artifactId>
-            <version>${beam.version}</version>
+            <version>4.8.3</version>
         </dependency>
         <dependency>
             <groupId>org.esa.beam</groupId>
@@ -90,7 +90,7 @@
         <dependency>
             <groupId>org.esa.beam</groupId>
             <artifactId>beam-idepix</artifactId>
-            <version>1.2_20101117</version>
+            <version>1.3_20110128</version>
         </dependency>
     </dependencies>
 

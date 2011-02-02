@@ -56,10 +56,14 @@ public class GaMasterOp  extends Operator {
     @Parameter(defaultValue="false")
     private boolean saveModelBands = false;
 */
-    @Parameter(defaultValue="2")
+    @Parameter(defaultValue="1")
+    private int soilSpecId;
+    @Parameter(defaultValue="5")
     private int vegSpecId;
     @Parameter(defaultValue="9")
     private int scale;
+    @Parameter(defaultValue="0.2")
+    private float ndviThr;
     private String instrument;
 
     @Override
@@ -100,8 +104,10 @@ public class GaMasterOp  extends Operator {
 
 
         Map<String, Object> aotParams = new HashMap<String, Object>(4);
+        aotParams.put("soilSpecId", soilSpecId);
         aotParams.put("vegSpecId", vegSpecId);
         aotParams.put("scale", scale);
+        aotParams.put("ndviThreshold", ndviThr);
         /*
         aotParams.put("retrieveAOT", retrieveAOT);
         aotParams.put("saveToaBands", saveToaBands);
