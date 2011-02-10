@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.esa.beam.globalbedo.sdr</groupId>
     <artifactId>GAaerosol</artifactId>
-    <version>1.2.3</version>
+    <version>1.2.4</version>
     <name>BEAM GlobAlbedo Aerosol</name>
     <description></description>
     <packaging>jar</packaging>

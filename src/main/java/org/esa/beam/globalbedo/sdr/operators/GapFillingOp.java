@@ -32,14 +32,14 @@ import org.esa.beam.util.ProductUtils;
 @OperatorMetadata(alias = "ga.GapFillingOp",
                   description = "Fills Gaps in Grid",
                   authors = "Andreas Heckel",
-                  version = "1.1",
+                  version = "1.2",
                   copyright = "(C) 2010 by University Swansea (a.heckel@swansea.ac.uk)")
 public class GapFillingOp extends Operator {
 
     @SourceProduct
     private Product aotProduct;
     private int f_interp;
-    private int f_invalid;
+    private int f_clim;
     @TargetProduct
     private Product targetProduct;
     private int box;
@@ -56,7 +56,7 @@ public class GapFillingOp extends Operator {
         box = off*2;
         climErr = 0.3;
         climDist = 10;
-        f_invalid = 0;
+        f_clim = 0;
         f_interp = 1;
         String pname = aotProduct.getName();
         String ptype = aotProduct.getProductType();
@@ -64,7 +64,7 @@ public class GapFillingOp extends Operator {
         rasterHeight = aotProduct.getSceneRasterHeight();
         targetProduct = new Product(pname, ptype, rasterWidth, rasterHeight);
         FlagCoding aotFlagCoding = new FlagCoding(AotConsts.aotFlags.name);
-        aotFlagCoding.addFlag("aot_invalid", BitSetter.setFlag(0, f_invalid), "pixel invalid");
+        aotFlagCoding.addFlag("aot_climatology", BitSetter.setFlag(0, f_clim), "aot from climatology only");
         aotFlagCoding.addFlag("aot_interp", BitSetter.setFlag(0, f_interp), "aot spatially interpolated");
         targetProduct.getFlagCodingGroup().add(aotFlagCoding);
         GaHelper.getInstance().createFlagMasks(targetProduct);
@@ -202,9 +202,15 @@ public class GapFillingOp extends Operator {
             flag = BitSetter.setFlag(flag, f_interp);
         }
         else {
-            fillResult[0] = (float) noDataValue;
-            fillResult[1] = (float) noDataValue;
-            flag = BitSetter.setFlag(flag, f_invalid);
+            if (n > 0){
+                fillResult[0] = (float)(sum/n);
+                fillResult[1] = (float)(sumErr/n);
+            }
+            else {
+                fillResult[0] = (float) noDataValue;
+                fillResult[1] = (float) noDataValue;
+            }
+            flag = BitSetter.setFlag(flag, f_clim);
         }
         return flag;
     }

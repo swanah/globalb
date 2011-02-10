@@ -146,7 +146,7 @@ public class AerosolOp2 extends Operator {
         surfPresName = instrC.getSurfPressureName(instrument);
         ndviName = instrC.getNdviName();
         
-        final String validExpression = instrC.getValidExpression(instrument);
+        final String validExpression = instrC.getValidRetrievalExpression(instrument);
         final BandMathsOp validBandOp = BandMathsOp.createBooleanExpressionBand(validExpression, sourceProduct);
         validBand = validBandOp.getTargetProduct().getBandAt(0);
         validName = validBand.getName();
@@ -304,11 +304,11 @@ public class AerosolOp2 extends Operator {
 
     private void createTargetProductBands() {
         Band targetBand = GaHelper.getInstance().createTargetBand(AotConsts.aot, tarRasterWidth, tarRasterHeight);
-        //targetBand.setValidPixelExpression(instrC.getValidExpression(instrument));
+        //targetBand.setValidPixelExpression(instrC.getValidRetrievalExpression(instrument));
         targetProduct.addBand(targetBand);
 
         targetBand = GaHelper.getInstance().createTargetBand(AotConsts.aotErr, tarRasterWidth, tarRasterHeight);
-        targetBand.setValidPixelExpression(instrC.getValidExpression(instrument));
+        targetBand.setValidPixelExpression(instrC.getValidRetrievalExpression(instrument));
         targetProduct.addBand(targetBand);
 
         targetBand = new Band("latitude", ProductData.TYPE_FLOAT32, tarRasterWidth, tarRasterHeight);

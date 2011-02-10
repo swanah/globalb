@@ -63,7 +63,11 @@ public class InstrumentConsts {
 //                                             0.05f, 0.05f, 0.05f, 0.05f, 0.05f};
     private final double[] merisFitWeights = {1.0, 1.0, 1.0, 1.0, 0.2, 1.0, 1.0, 1.0,
                                              0.5, 0.5, 0.0, 0.5, 0.5, 0.5, 0.0};
-    private final String merisValidExpr = "(!l1_flags.INVALID "
+    private final String merisValAotOutputExpr = "(!l1_flags.INVALID "
+            + " &&  " + idepixFlagBandName+".F_LAND "
+            + " && (!" + idepixFlagBandName+".F_CLOUD_BUFFER || " + idepixFlagBandName+".F_CLEAR_SNOW)"
+            + " && ("+EnvisatConstants.MERIS_SUN_ZENITH_DS_NAME+"<70))";
+    private final String merisValidRetrievalExpr = "(!l1_flags.INVALID "
             + " &&  " + idepixFlagBandName+".F_LAND "
             + " && !" + idepixFlagBandName+".F_CLEAR_SNOW "
             + " && !" + idepixFlagBandName+".F_CLOUD_BUFFER "
@@ -82,7 +86,11 @@ public class InstrumentConsts {
     private final String[] vgtGeomNames = {"SZA", "SAA", "VZA", "VAA"};
     private final double[] vgtFitWeights = {1.0, 1.0, 0.5, 0.1};
     //private final double[] vgtFitWeights = {1.0, 1.0, 0.5, 0.0};
-    private final String  vgtValidExpr = "(SM.B0_GOOD && SM.B2_GOOD && SM.B3_GOOD && SM.LAND "
+    private final String  vgtValAotOutputExpr = "(SM.B0_GOOD && SM.B2_GOOD && SM.B3_GOOD "
+            + " &&  " + idepixFlagBandName+".F_LAND "
+            + " && (!" + idepixFlagBandName+".F_CLOUD_BUFFER || " + idepixFlagBandName+".F_CLEAR_SNOW)"
+            + " && (SZA<70)) ";
+    private final String  vgtValidRetrievaExpr = "(SM.B0_GOOD && SM.B2_GOOD && SM.B3_GOOD && SM.MIR_GOOD "
             + " &&  " + idepixFlagBandName+".F_LAND "
             + " && !" + idepixFlagBandName+".F_CLEAR_SNOW "
             + " && !" + idepixFlagBandName+".F_CLOUD_BUFFER "
@@ -118,9 +126,23 @@ public class InstrumentConsts {
         EnvisatConstants.AATSR_VIEW_AZIMUTH_FWARD_DS_NAME
     };
     private final double[] aatsrFitWeights = {1.5, 1.0, 1.0, 1.55};
-    private final String  aatsrAotValExpr = idepixFlagBandName+".F_CLEAR_LAND || "+idepixFwardFlagBandName+".F_CLEAR_LAND";
-    private final String aatsrCldFreeExpr = " !"+idepixFlagBandName+".F_CLOUD_BUFFER && !"+idepixFwardFlagBandName+".F_CLOUD_BUFFER ";
-    private final String  aatsrValidExpr = "("+idepixFlagBandName+".F_LAND && "+ aatsrCldFreeExpr
+//    private final String aatsrCldFreeExpr = " !"+idepixFlagBandName+".F_CLOUD_BUFFER && !"+idepixFwardFlagBandName+".F_CLOUD_BUFFER ";
+    private final String  aatsrValAotOutputExpr = "("+idepixFlagBandName+".F_LAND && "
+        + " && (!"+idepixFlagBandName+".F_CLOUD_BUFFER || "+idepixFlagBandName+".F_CLEAR_SNOW)"
+        + " && (!"+idepixFwardFlagBandName+".F_CLOUD_BUFFER || "+idepixFwardFlagBandName+".F_CLEAR_SNOW)"
+        + " && (90-sun_elev_nadir) < 70"
+        + " && (90-sun_elev_fward) < 70"
+        + " && reflec_nadir_0550 >= 0"
+        + " && reflec_nadir_0670 >= 0"
+        + " && reflec_nadir_0870 >= 0"
+        + " && reflec_nadir_1600 >= 0"
+        + " && reflec_fward_0550 >= 0"
+        + " && reflec_fward_0670 >= 0"
+        + " && reflec_fward_0870 >= 0"
+        + " && reflec_fward_1600 >= 0 )";
+    private final String  aatsrValidRetrievalExpr = "("+idepixFlagBandName+".F_LAND && "
+        + " && !"+idepixFlagBandName+".F_CLOUD_BUFFER"
+        + " && !"+idepixFwardFlagBandName+".F_CLOUD_BUFFER"
         + " && !"+idepixFlagBandName+".F_CLEAR_SNOW"
         + " && !"+idepixFwardFlagBandName+".F_CLEAR_SNOW"
         + " && (90-sun_elev_nadir) < 70"
@@ -141,7 +163,8 @@ public class InstrumentConsts {
     private final Map<String, String[]> reflecNames;
     private final Map<String, String[]> geomNames;
     private final Map<String, double[]> fitWeights;
-    private final Map<String, String> validExpr;
+    private final Map<String, String> validRetrievalExpr;
+    private final Map<String, String> validAotOutExpr;
     private final Map<String, Integer> nLutBands;
     private final Map<String, String> surfPressureName;
     private final Map<String, String> ozoneName;
@@ -175,10 +198,15 @@ public class InstrumentConsts {
         fitWeights.put(supportedInstruments[1], vgtFitWeights);
         fitWeights.put(supportedInstruments[2], aatsrFitWeights);
 
-        this.validExpr = new HashMap<String, String>(supportedInstruments.length);
-        validExpr.put(supportedInstruments[0], merisValidExpr);
-        validExpr.put(supportedInstruments[1], vgtValidExpr);
-        validExpr.put(supportedInstruments[2], aatsrValidExpr);
+        this.validRetrievalExpr = new HashMap<String, String>(supportedInstruments.length);
+        validRetrievalExpr.put(supportedInstruments[0], merisValidRetrievalExpr);
+        validRetrievalExpr.put(supportedInstruments[1], vgtValidRetrievaExpr);
+        validRetrievalExpr.put(supportedInstruments[2], aatsrValidRetrievalExpr);
+
+        this.validAotOutExpr = new HashMap<String, String>(supportedInstruments.length);
+        validAotOutExpr.put(supportedInstruments[0], merisValAotOutputExpr);
+        validAotOutExpr.put(supportedInstruments[1], vgtValAotOutputExpr);
+        validAotOutExpr.put(supportedInstruments[2], aatsrValAotOutputExpr);
 
         this.nLutBands = new HashMap<String, Integer>(supportedInstruments.length);
         nLutBands.put(supportedInstruments[0], merisNLutBands);
@@ -247,12 +275,12 @@ public class InstrumentConsts {
         return supportedInstruments;
     }
 
-    public String getValidExpression(String instrument) {
-        return validExpr.get(instrument);
+    public String getValidRetrievalExpression(String instrument) {
+        return validRetrievalExpr.get(instrument);
     }
 
-    public String getAotExpression(String instrument) {
-        return (instrument.equals("AATSR"))? aatsrAotValExpr : getValidExpression(instrument);
+    public String getValAotOutExpression(String instrument) {
+        return validAotOutExpr.get(instrument);
     }
 
     public int getnLutBands(String instrument) {
